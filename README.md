@@ -2,6 +2,8 @@
 
 A set of useful SRE tools. This project is written Golang (v1.12 and above recommended).
 
+![Linux Gopher](./assets/gopher.png)
+
 ### Building sre-tooling
 
 Before you install sre-tooling, make sure your environment is setup and ready for Golang packages. Install the Golang compiler using your package manager. On Ubuntu, run:
