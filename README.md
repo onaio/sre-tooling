@@ -18,6 +18,12 @@ If you haven't already, set the `GOPATH` environment variable (preferably in any
 export GOPATH=$HOME/go
 ```
 
+Enable Go modules:
+
+```sh
+export GO111MODULE=on
+```
+
 You will also want to add the bin directory in your GOPATH to your PATH:
 
 ```sh
