@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/onaio/sre-tooling/billing"
+	"github.com/onaio/sre-tooling/bill"
 )
 
 const helpSubCommand string = "help"
@@ -17,8 +17,8 @@ func cli(args []string) {
 	commandName := args[0]
 	if len(args) > 1 {
 		switch args[1] {
-		case billing.Command:
-			billing.Cli(commandName, helpSubCommand, args[2:])
+		case bill.Command:
+			bill.Cli(commandName, helpSubCommand, args[2:])
 		case helpSubCommand:
 			fmt.Println(help(commandName))
 		default:
@@ -37,8 +37,8 @@ func help(commandName string) string {
 Usage: %s [command]
 
 Common commands:
-	%s		Billing specific commands
+	%s		bill specific commands
 	%s		Prints this help message
 `
-	return fmt.Sprintf(text, commandName, billing.Command, helpSubCommand)
+	return fmt.Sprintf(text, commandName, bill.Command, helpSubCommand)
 }

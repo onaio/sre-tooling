@@ -1,4 +1,4 @@
-package billing
+package bill
 
 import (
 	"errors"
@@ -20,7 +20,7 @@ type VirtualMachine struct {
 	tags         map[string]string
 }
 
-const Command string = "billing"
+const Command string = "bill"
 const validateSubCommand = "validate"
 const requiredTagsEnvVar = "SRE_BILLING_REQUIRED_TAGS"
 
