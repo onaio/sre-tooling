@@ -8,23 +8,28 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 )
 
-func getAwsVirtualMachines() ([]*VirtualMachine, error) {
-	virtualMachines := []*VirtualMachine{}
+type AWS struct {
+}
+
+const awsProviderName string = "AWS"
+
+func (aws AWS) getAllResources(filter *Filter) ([]*Resource, error) {
+	instances := []*Resource{}
 	regions, regionErr := getAwsRegions()
 	if regionErr != nil {
 		return nil, regionErr
 	}
 
 	for _, curRegion := range regions {
-		curVirtMachines, curRegErr := getAwsVirtualMachinesInRegion(&curRegion)
+		curVirtMachines, curRegErr := getAwsEC2InstancesInRegion(&curRegion)
 		if curRegErr != nil {
 			return nil, curRegErr
 		}
 
-		virtualMachines = append(virtualMachines, curVirtMachines...)
+		instances = append(instances, curVirtMachines...)
 	}
 
-	return virtualMachines, nil
+	return instances, nil
 }
 
 func getAwsRegions() ([]string, error) {
@@ -45,7 +50,7 @@ func getAwsRegions() ([]string, error) {
 	return regions, nil
 }
 
-func getAwsVirtualMachinesInRegion(region *string) ([]*VirtualMachine, error) {
+func getAwsEC2InstancesInRegion(region *string) ([]*Resource, error) {
 	fmt.Printf("Getting AWS EC2 instances in %s\n", *region)
 	awsConfig := aws.Config{
 		Region: region}
@@ -62,7 +67,7 @@ func getAwsVirtualMachinesInRegion(region *string) ([]*VirtualMachine, error) {
 		return nil, ec2InstancesErr
 	}
 
-	virtualMachines := []*VirtualMachine{}
+	virtualMachines := []*Resource{}
 
 	for _, curReservation := range ec2Instances.Reservations {
 		for _, curInstance := range curReservation.Instances {
@@ -71,14 +76,14 @@ func getAwsVirtualMachinesInRegion(region *string) ([]*VirtualMachine, error) {
 				instanceTags[*curInstanceTag.Key] = *curInstanceTag.Value
 			}
 
-			curVirtualMachine := VirtualMachine{
-				Provider:     "aws",
+			curInstance := Resource{
+				Provider:     awsProviderName,
 				ID:           *curInstance.InstanceId,
 				Location:     *curInstance.Placement.AvailabilityZone,
-				Architecture: *curInstance.Architecture,
+				ResourceType: "EC2",
 				LaunchTime:   *curInstance.LaunchTime,
 				Tags:         instanceTags}
-			virtualMachines = append(virtualMachines, &curVirtualMachine)
+			virtualMachines = append(virtualMachines, &curInstance)
 		}
 	}
 

@@ -18,20 +18,20 @@ func validateTags() (bool, error) {
 	}
 	requiredTags := strings.Split(requiredTagsString, ",")
 
-	allVirtualMachines, virtMachinesErr := cloud.GetAllVirtualMachines()
-	if virtMachinesErr != nil {
-		return false, virtMachinesErr
+	allResources, resourcesErr := cloud.GetAllCloudResources(nil)
+	if resourcesErr != nil {
+		return false, resourcesErr
 	}
 
-	fmt.Printf("Checking %d instances\n", len(allVirtualMachines))
+	fmt.Printf("Checking %d instances\n", len(allResources))
 	allGood := true
 	errMessage := ""
-	for _, curVirtualMachine := range allVirtualMachines {
-		curTagKeys := cloud.GetTagKeys(curVirtualMachine)
+	for _, curResource := range allResources {
+		curTagKeys := cloud.GetTagKeys(curResource)
 		missingTags := getItemsInANotB(&requiredTags, &curTagKeys)
 		if len(missingTags) > 0 {
 			allGood = false
-			errMessage = errMessage + fmt.Sprintf("%s - %s - %s missing tags %v\n", curVirtualMachine.Provider, curVirtualMachine.Location, curVirtualMachine.ID, missingTags)
+			errMessage = errMessage + fmt.Sprintf("%s - %s - %s - %s missing tags %v\n", curResource.Provider, curResource.ResourceType, curResource.Location, curResource.ID, missingTags)
 		}
 	}
 

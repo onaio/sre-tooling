@@ -5,26 +5,37 @@ import (
 	"time"
 )
 
-type VirtualMachine struct {
+type Provider interface {
+	getAllResources(filter *Filter) ([]*Resource, error)
+}
+
+type Resource struct {
 	Provider     string
 	ID           string
 	Location     string
-	Architecture string
+	ResourceType string
 	LaunchTime   time.Time
 	Tags         map[string]string
 }
 
-func GetAllVirtualMachines() ([]*VirtualMachine, error) {
-	allVirtualMachines, awsErr := getAwsVirtualMachines()
+type Filter struct {
+	Provider     string
+	ResourceType string
+	Tags         map[string]string
+}
+
+func GetAllCloudResources(filter *Filter) ([]*Resource, error) {
+	aws := AWS{}
+	allResources, awsErr := aws.getAllResources(filter)
 	if awsErr != nil {
 		return nil, awsErr
 	}
 
-	return allVirtualMachines, nil
+	return allResources, nil
 }
 
-func GetTagKeys(virtualMachine *VirtualMachine) []string {
-	keyObjects := reflect.ValueOf(virtualMachine.Tags).MapKeys()
+func GetTagKeys(resource *Resource) []string {
+	keyObjects := reflect.ValueOf(resource.Tags).MapKeys()
 	keys := make([]string, len(keyObjects))
 	for i := 0; i < len(keyObjects); i++ {
 		keys[i] = keyObjects[i].String()
