@@ -1,4 +1,4 @@
-package bill
+package cloud
 
 import (
 	"fmt"
@@ -72,12 +72,12 @@ func getAwsVirtualMachinesInRegion(region *string) ([]*VirtualMachine, error) {
 			}
 
 			curVirtualMachine := VirtualMachine{
-				provider:     "aws",
-				id:           *curInstance.InstanceId,
-				location:     *curInstance.Placement.AvailabilityZone,
-				architecture: *curInstance.Architecture,
-				launchTime:   *curInstance.LaunchTime,
-				tags:         instanceTags}
+				Provider:     "aws",
+				ID:           *curInstance.InstanceId,
+				Location:     *curInstance.Placement.AvailabilityZone,
+				Architecture: *curInstance.Architecture,
+				LaunchTime:   *curInstance.LaunchTime,
+				Tags:         instanceTags}
 			virtualMachines = append(virtualMachines, &curVirtualMachine)
 		}
 	}

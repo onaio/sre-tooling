@@ -1,27 +1,13 @@
 package bill
 
 import (
-	"errors"
 	"fmt"
 	"os"
-	"reflect"
-	"strings"
-	"time"
 
 	"github.com/onaio/sre-tooling/notify"
 )
 
-type VirtualMachine struct {
-	provider     string
-	id           string
-	location     string
-	architecture string
-	launchTime   time.Time
-	tags         map[string]string
-}
-
 const Command string = "bill"
-const validateSubCommand = "validate"
 const requiredTagsEnvVar = "SRE_BILLING_REQUIRED_TAGS"
 
 func Cli(commandName string, helpSubCommand string, args []string) {
@@ -57,42 +43,6 @@ Common commands:
 	return fmt.Sprintf(text, commandName, Command, validateSubCommand, helpSubCommand)
 }
 
-func getAllVirtualMachines() ([]*VirtualMachine, error) {
-	allVirtualMachines, awsErr := getAwsVirtualMachines()
-	if awsErr != nil {
-		return nil, awsErr
-	}
-
-	return allVirtualMachines, nil
-}
-
-func validateTags() (bool, error) {
-	requiredTagsString := os.Getenv(requiredTagsEnvVar)
-	if len(requiredTagsString) == 0 {
-		return false, errors.New(fmt.Sprintf("%s not set", requiredTagsEnvVar))
-	}
-	requiredTags := strings.Split(requiredTagsString, ",")
-
-	allVirtualMachines, virtMachinesErr := getAllVirtualMachines()
-	if virtMachinesErr != nil {
-		return false, virtMachinesErr
-	}
-
-	fmt.Printf("Checking %d instances\n", len(allVirtualMachines))
-	allGood := true
-	errMessage := ""
-	for _, curVirtualMachine := range allVirtualMachines {
-		curTagKeys := getTagKeys(curVirtualMachine)
-		missingTags := getItemsInANotB(&requiredTags, &curTagKeys)
-		if len(missingTags) > 0 {
-			allGood = false
-			errMessage = errMessage + fmt.Sprintf("%s - %s - %s missing tags %v\n", curVirtualMachine.provider, curVirtualMachine.location, curVirtualMachine.id, missingTags)
-		}
-	}
-
-	return allGood, errors.New(errMessage)
-}
-
 func getItemsInANotB(a *[]string, b *[]string) []string {
 	itemsInANotB := []string{}
 
@@ -113,14 +63,4 @@ func stringInSlice(x string, slice *[]string) bool {
 	}
 
 	return false
-}
-
-func getTagKeys(virtualMachine *VirtualMachine) []string {
-	keyObjects := reflect.ValueOf(virtualMachine.tags).MapKeys()
-	keys := make([]string, len(keyObjects))
-	for i := 0; i < len(keyObjects); i++ {
-		keys[i] = keyObjects[i].String()
-	}
-
-	return keys
 }
