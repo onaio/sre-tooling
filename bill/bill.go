@@ -8,7 +8,7 @@ import (
 )
 
 const Command string = "bill"
-const requiredTagsEnvVar = "SRE_BILLING_REQUIRED_TAGS"
+const requiredTagsEnvVar = "SRE_BILL_REQUIRED_TAGS"
 
 func Cli(commandName string, helpSubCommand string, args []string) {
 	if len(args) > 0 {

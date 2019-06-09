@@ -8,7 +8,7 @@ import (
 	"os"
 )
 
-const slackWebhookURLEnvVar string = "SRE_SLACK_WEBHOOK_URL"
+const slackWebhookURLEnvVar string = "SRE_NOTIFY_SLACK_WEBHOOK_URL"
 
 type SlackNotificationChannel struct {
 	authToken string
