@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/onaio/sre-tooling/utils/cloud"
+	"github.com/onaio/sre-tooling/libs/cloud"
 )
 
 const validateSubCommand = "validate"

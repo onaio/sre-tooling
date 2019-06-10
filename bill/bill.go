@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	notification "github.com/onaio/sre-tooling/utils/notification"
+	notification "github.com/onaio/sre-tooling/libs/notification"
 )
 
 const Command string = "bill"
