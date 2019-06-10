@@ -1,14 +1,14 @@
-package notify
+package notification
 
 import (
 	"fmt"
 	"strings"
 )
 
-type LogNotificationChannel struct {
+type Log struct {
 }
 
-func (snc LogNotificationChannel) SendMessage(message string) error {
+func (snc Log) SendMessage(message string) error {
 	splitString := strings.Split(message, "\n")
 	for _, curLine := range splitString {
 		if len(curLine) > 0 {

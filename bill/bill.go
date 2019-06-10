@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/onaio/sre-tooling/notify"
+	notification "github.com/onaio/sre-tooling/utils/notification"
 )
 
 const Command string = "bill"
@@ -16,7 +16,7 @@ func Cli(commandName string, helpSubCommand string, args []string) {
 		case validateSubCommand:
 			tagsValid, tagsErr := validateTags()
 			if !tagsValid {
-				notify.SendMessage(tagsErr.Error())
+				notification.SendMessage(tagsErr.Error())
 				os.Exit(1)
 			}
 		case helpSubCommand:

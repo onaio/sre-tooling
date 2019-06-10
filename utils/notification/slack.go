@@ -1,4 +1,4 @@
-package notify
+package notification
 
 import (
 	"bytes"
@@ -10,11 +10,11 @@ import (
 
 const slackWebhookURLEnvVar string = "SRE_NOTIFY_SLACK_WEBHOOK_URL"
 
-type SlackNotificationChannel struct {
+type Slack struct {
 	authToken string
 }
 
-func (snc SlackNotificationChannel) SendMessage(message string) error {
+func (snc Slack) SendMessage(message string) error {
 	webhookURL := os.Getenv(slackWebhookURLEnvVar)
 	if len(webhookURL) == 0 {
 		return errors.New(fmt.Sprintf("%s not set", slackWebhookURLEnvVar))
