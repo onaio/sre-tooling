@@ -51,4 +51,4 @@ The following environment variables need to be set for the sre-tooling command t
 - `AWS_ACCESS_KEY_ID`: Required if AWS credentials not configured in ~/.aws/credentials. The AWS access key ID to use to authenticate against the API.
 - `AWS_SECRET_ACCESS_KEY`: Required if AWS credentials not configured in ~/.aws/credentials. The AWS access key to use to authenticate against the API.
 - `SRE_BILL_REQUIRED_TAGS`: Required. Comma-separated list of keys that are required for billing e.g `"OwnerList,EnvironmentList,EndDate"`.
-- `SRE_NOTIFY_SLACK_WEBHOOK_URL`: Not required. Slack Webhook URL to use to send notifications to Slack. If not set, tool will not try to send notifications to Slack.
+- `SRE_NOTIFICATION_SLACK_WEBHOOK_URL`: Not required. Slack Webhook URL to use to send notifications to Slack. If not set, tool will not try to send notifications to Slack.
