@@ -1,32 +1,66 @@
 package validate
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/onaio/sre-tooling/libs/cli/flags"
 	"github.com/onaio/sre-tooling/libs/cloud"
 	"github.com/onaio/sre-tooling/libs/notification"
 )
 
-const Command string = "validate"
-const RequiredTagsEnvVar = "SRE_INFRA_BILL_REQUIRED_TAGS"
+const name string = "validate"
+const requiredTagsEnvVar = "SRE_INFRA_BILL_REQUIRED_TAGS"
 
-func Validate() {
-	requiredTagsString := os.Getenv(RequiredTagsEnvVar)
+type Validate struct {
+	helpFlag     *bool
+	flagSet      *flag.FlagSet
+	providerFlag *flags.StringArray
+	regionFlag   *flags.StringArray
+	typeFlag     *flags.StringArray
+	tagFlag      *flags.StringArray
+}
+
+func (validate *Validate) Init(helpFlagName string, helpFlagDescription string) {
+	validate.flagSet = flag.NewFlagSet(validate.GetName(), flag.ExitOnError)
+	validate.helpFlag = validate.flagSet.Bool(helpFlagName, false, helpFlagDescription)
+	validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag = cloud.AddFlags(validate.flagSet)
+}
+
+func (validate *Validate) GetName() string {
+	return name
+}
+
+func (validate *Validate) GetDescription() string {
+	return "Validates whether billing tags for resources are okay"
+}
+
+func (validate *Validate) ParseArgs(args []string) {
+	validate.flagSet.Parse(args)
+	if *validate.helpFlag {
+		validate.printHelp()
+	} else {
+		validate.validate()
+	}
+}
+
+func (validate *Validate) validate() {
+	requiredTagsString := os.Getenv(requiredTagsEnvVar)
 	if len(requiredTagsString) == 0 {
-		notification.SendMessage(fmt.Sprintf("%s not set", RequiredTagsEnvVar))
+		notification.SendMessage(fmt.Sprintf("%s not set", requiredTagsEnvVar))
 		os.Exit(1)
 	}
 	requiredTags := strings.Split(requiredTagsString, ",")
 
-	allResources, resourcesErr := cloud.GetAllCloudResources(nil)
+	allResources, resourcesErr := cloud.GetAllCloudResources(cloud.GetFiltersFromCommandFlags(validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag))
 	if resourcesErr != nil {
 		notification.SendMessage(resourcesErr.Error())
 		os.Exit(1)
 	}
 
-	fmt.Printf("Checking %d instances\n", len(allResources))
+	fmt.Printf("Checking %d resources\n", len(allResources))
 	allGood := true
 	errMessage := ""
 	for _, curResource := range allResources {
@@ -42,6 +76,11 @@ func Validate() {
 		notification.SendMessage(errMessage)
 		os.Exit(1)
 	}
+}
+
+func (validate *Validate) printHelp() {
+	fmt.Println(validate.GetDescription())
+	validate.flagSet.PrintDefaults()
 }
 
 func getItemsInANotB(a *[]string, b *[]string) []string {
