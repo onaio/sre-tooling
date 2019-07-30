@@ -26,7 +26,7 @@ type Validate struct {
 func (validate *Validate) Init(helpFlagName string, helpFlagDescription string) {
 	validate.flagSet = flag.NewFlagSet(validate.GetName(), flag.ExitOnError)
 	validate.helpFlag = validate.flagSet.Bool(helpFlagName, false, helpFlagDescription)
-	validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag = cloud.AddFlags(validate.flagSet)
+	validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag = cloud.AddFilterFlags(validate.flagSet)
 }
 
 func (validate *Validate) GetName() string {
@@ -54,7 +54,7 @@ func (validate *Validate) validate() {
 	}
 	requiredTags := strings.Split(requiredTagsString, ",")
 
-	allResources, resourcesErr := cloud.GetAllCloudResources(cloud.GetFiltersFromCommandFlags(validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag))
+	allResources, resourcesErr := cloud.GetAllCloudResources(cloud.GetFiltersFromCommandFlags(validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag), false)
 	if resourcesErr != nil {
 		notification.SendMessage(resourcesErr.Error())
 		os.Exit(1)

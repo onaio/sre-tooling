@@ -11,7 +11,7 @@ import (
 
 type Provider interface {
 	getName() string
-	getAllResources(filter *Filter) ([]*Resource, error)
+	getAllResources(filter *Filter, quiet bool) ([]*Resource, error)
 }
 
 type Resource struct {
@@ -21,6 +21,7 @@ type Resource struct {
 	ResourceType string
 	LaunchTime   time.Time
 	Tags         map[string]string
+	Properties   map[string]string
 }
 
 type Filter struct {
@@ -32,12 +33,12 @@ type Filter struct {
 
 const tagFlagSeparator = ":"
 
-func GetAllCloudResources(filter *Filter) ([]*Resource, error) {
+func GetAllCloudResources(filter *Filter, quiet bool) ([]*Resource, error) {
 	allResources := []*Resource{}
 
 	aws := AWS{}
 	if considerProvider(aws, filter) {
-		awsResources, awsErr := aws.getAllResources(filter)
+		awsResources, awsErr := aws.getAllResources(filter, quiet)
 		if awsErr != nil {
 			return nil, awsErr
 		}
@@ -57,15 +58,15 @@ func GetTagKeys(resource *Resource) []string {
 	return keys
 }
 
-func AddFlags(flagSet *flag.FlagSet) (*flags.StringArray, *flags.StringArray, *flags.StringArray, *flags.StringArray) {
+func AddFilterFlags(flagSet *flag.FlagSet) (*flags.StringArray, *flags.StringArray, *flags.StringArray, *flags.StringArray) {
 	providerFlag := new(flags.StringArray)
-	flagSet.Var(providerFlag, "provider", "Name of provider to filter using")
+	flagSet.Var(providerFlag, "provider", "Name of provider to filter using. Multiple values can be provided by specifying multiple -provider")
 	regionFlag := new(flags.StringArray)
-	flagSet.Var(regionFlag, "region", "Name of a provider region to filter using")
+	flagSet.Var(regionFlag, "region", "Name of a provider region to filter using. Multiple values can be provided by specifying multiple -region")
 	typeFlag := new(flags.StringArray)
-	flagSet.Var(typeFlag, "type", "Resource type to filter using")
+	flagSet.Var(typeFlag, "type", "Resource type to filter using e.g. \"EC2\". Multiple values can be provided by specifying multiple -type")
 	tagFlag := new(flags.StringArray)
-	flagSet.Var(tagFlag, "tag", "Resource tag to filter using. Use the format \"tagKey"+tagFlagSeparator+"tagValue\"")
+	flagSet.Var(tagFlag, "tag", "Resource tag to filter using. Use the format \"tagKey"+tagFlagSeparator+"tagValue\". Multiple values can be provided by specifying multiple -tag")
 
 	return providerFlag, regionFlag, typeFlag, tagFlag
 }

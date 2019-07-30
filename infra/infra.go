@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/onaio/sre-tooling/infra/bill"
+	"github.com/onaio/sre-tooling/infra/query"
 )
 
 const name string = "infra"
@@ -14,6 +15,7 @@ type Infra struct {
 	helpFlag *bool
 	flagSet  *flag.FlagSet
 	bill     *bill.Bill
+	query    *query.Query
 }
 
 func (infra *Infra) Init(helpFlagName string, helpFlagDescription string) {
@@ -21,6 +23,8 @@ func (infra *Infra) Init(helpFlagName string, helpFlagDescription string) {
 	infra.helpFlag = infra.flagSet.Bool(helpFlagName, false, helpFlagDescription)
 	infra.bill = new(bill.Bill)
 	infra.bill.Init(helpFlagName, helpFlagDescription)
+	infra.query = new(query.Query)
+	infra.query.Init(helpFlagName, helpFlagDescription)
 }
 
 func (infra *Infra) GetName() string {
@@ -41,6 +45,8 @@ func (infra *Infra) ParseArgs(args []string) {
 		switch subCommand {
 		case infra.bill.GetName():
 			infra.bill.ParseArgs(args[1:])
+		case infra.query.GetName():
+			infra.query.ParseArgs(args[1:])
 		}
 	} else {
 		infra.printHelp()
@@ -54,6 +60,9 @@ func (infra *Infra) printHelp() {
 	text := `
 Common commands:
 	%s		%s
+	%s		%s
 `
-	fmt.Printf(text, infra.bill.GetName(), infra.bill.GetDescription())
+	fmt.Printf(text,
+		infra.bill.GetName(), infra.bill.GetDescription(),
+		infra.query.GetName(), infra.query.GetDescription())
 }
