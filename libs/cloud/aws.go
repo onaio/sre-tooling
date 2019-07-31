@@ -89,24 +89,20 @@ func (a AWS) getEC2InstancesInRegion(region *string, filter *Filter, quiet bool)
 			}
 
 			instanceProperties := make(map[string]string)
-			instanceProperties["availability-zone"] = *curInstance.Placement.AvailabilityZone
-			instanceProperties["id"] = *curInstance.InstanceId
-			instanceProperties["launch-time"] = time.Time.String(*curInstance.LaunchTime)
-			instanceProperties["private-ip"] = *curInstance.PrivateIpAddress
-			instanceProperties["private-dns-name"] = *curInstance.PrivateDnsName
-			if curInstance.PublicIpAddress != nil {
-				instanceProperties["public-ip"] = *curInstance.PublicIpAddress
-			}
-			instanceProperties["public-dns-name"] = *curInstance.PublicDnsName
-			instanceProperties["image-id"] = *curInstance.ImageId
-			instanceProperties["vpc-id"] = *curInstance.VpcId
-			instanceProperties["instance-type"] = *curInstance.InstanceType
-			instanceProperties["key-name"] = *curInstance.KeyName
-			instanceProperties["state"] = *curInstance.State.Name
-			instanceProperties["architecture"] = *curInstance.Architecture
-			if curInstance.Platform != nil {
-				instanceProperties["platform"] = *curInstance.Platform
-			}
+			a.addStringProperty("availability-zone", curInstance.Placement.AvailabilityZone, &instanceProperties)
+			a.addStringProperty("id", curInstance.InstanceId, &instanceProperties)
+			a.addTimeProperty("launch-time", curInstance.LaunchTime, &instanceProperties)
+			a.addStringProperty("private-ip", curInstance.PrivateIpAddress, &instanceProperties)
+			a.addStringProperty("private-dns-name", curInstance.PrivateDnsName, &instanceProperties)
+			a.addStringProperty("public-ip", curInstance.PublicIpAddress, &instanceProperties)
+			a.addStringProperty("public-dns-name", curInstance.PublicDnsName, &instanceProperties)
+			a.addStringProperty("image-id", curInstance.ImageId, &instanceProperties)
+			a.addStringProperty("vpc-id", curInstance.VpcId, &instanceProperties)
+			a.addStringProperty("instance-type", curInstance.InstanceType, &instanceProperties)
+			a.addStringProperty("key-name", curInstance.KeyName, &instanceProperties)
+			a.addStringProperty("state", curInstance.State.Name, &instanceProperties)
+			a.addStringProperty("architecture", curInstance.Architecture, &instanceProperties)
+			a.addStringProperty("platform", curInstance.Platform, &instanceProperties)
 
 			if considerTags(instanceTags, filter) {
 				resource := Resource{
@@ -123,4 +119,16 @@ func (a AWS) getEC2InstancesInRegion(region *string, filter *Filter, quiet bool)
 	}
 
 	return virtualMachines, nil
+}
+
+func (a AWS) addStringProperty(propName string, propValue *string, properties *map[string]string) {
+	if propValue != nil {
+		(*properties)[propName] = *propValue
+	}
+}
+
+func (a AWS) addTimeProperty(propName string, propValue *time.Time, properties *map[string]string) {
+	if propValue != nil {
+		(*properties)[propName] = time.Time.String(*propValue)
+	}
 }
