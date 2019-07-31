@@ -41,7 +41,7 @@ go get github.com/onaio/sre-tooling
 You can check whether the binary is installed by running:
 
 ```sh
-sre-tooling help
+sre-tooling -help
 ```
 
 ### Environment Variables

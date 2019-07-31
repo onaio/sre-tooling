@@ -1,0 +1,16 @@
+
+build:
+  main: ./main.go
+  binary: sre-tooling
+  goos:
+    - darwin
+    - linux
+    - windows
+  goarch:
+    - amd64
+
+archive:
+  files:
+    - LICENSE
+    - README.md
+    - assets/*

@@ -2,6 +2,7 @@ package cloud
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -12,27 +13,36 @@ type AWS struct {
 }
 
 const awsProviderName string = "AWS"
+const resourceTypeEc2 string = "EC2"
 
-func (aws AWS) getAllResources(filter *Filter) ([]*Resource, error) {
-	instances := []*Resource{}
-	regions, regionErr := getAwsRegions()
+func (aws AWS) getName() string {
+	return awsProviderName
+}
+
+func (a AWS) getAllResources(filter *Filter, quiet bool) ([]*Resource, error) {
+	resources := []*Resource{}
+	regions, regionErr := a.getRegions()
 	if regionErr != nil {
 		return nil, regionErr
 	}
 
 	for _, curRegion := range regions {
-		curVirtMachines, curRegErr := getAwsEC2InstancesInRegion(&curRegion)
-		if curRegErr != nil {
-			return nil, curRegErr
-		}
+		if considerRegion(curRegion, filter) {
+			if considerResourceType(resourceTypeEc2, filter) {
+				curVirtMachines, curRegErr := a.getEC2InstancesInRegion(&curRegion, filter, quiet)
+				if curRegErr != nil {
+					return nil, curRegErr
+				}
 
-		instances = append(instances, curVirtMachines...)
+				resources = append(resources, curVirtMachines...)
+			}
+		}
 	}
 
-	return instances, nil
+	return resources, nil
 }
 
-func getAwsRegions() ([]string, error) {
+func (a AWS) getRegions() ([]string, error) {
 	regions := []string{}
 	session := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -50,8 +60,10 @@ func getAwsRegions() ([]string, error) {
 	return regions, nil
 }
 
-func getAwsEC2InstancesInRegion(region *string) ([]*Resource, error) {
-	fmt.Printf("Getting AWS EC2 instances in %s\n", *region)
+func (a AWS) getEC2InstancesInRegion(region *string, filter *Filter, quiet bool) ([]*Resource, error) {
+	if !quiet {
+		fmt.Printf("Getting AWS EC2 instances in %s\n", *region)
+	}
 	awsConfig := aws.Config{
 		Region: region}
 	// Load session from shared config
@@ -76,14 +88,37 @@ func getAwsEC2InstancesInRegion(region *string) ([]*Resource, error) {
 				instanceTags[*curInstanceTag.Key] = *curInstanceTag.Value
 			}
 
-			curInstance := Resource{
-				Provider:     awsProviderName,
-				ID:           *curInstance.InstanceId,
-				Location:     *curInstance.Placement.AvailabilityZone,
-				ResourceType: "EC2",
-				LaunchTime:   *curInstance.LaunchTime,
-				Tags:         instanceTags}
-			virtualMachines = append(virtualMachines, &curInstance)
+			instanceProperties := make(map[string]string)
+			instanceProperties["availability-zone"] = *curInstance.Placement.AvailabilityZone
+			instanceProperties["id"] = *curInstance.InstanceId
+			instanceProperties["launch-time"] = time.Time.String(*curInstance.LaunchTime)
+			instanceProperties["private-ip"] = *curInstance.PrivateIpAddress
+			instanceProperties["private-dns-name"] = *curInstance.PrivateDnsName
+			if curInstance.PublicIpAddress != nil {
+				instanceProperties["public-ip"] = *curInstance.PublicIpAddress
+			}
+			instanceProperties["public-dns-name"] = *curInstance.PublicDnsName
+			instanceProperties["image-id"] = *curInstance.ImageId
+			instanceProperties["vpc-id"] = *curInstance.VpcId
+			instanceProperties["instance-type"] = *curInstance.InstanceType
+			instanceProperties["key-name"] = *curInstance.KeyName
+			instanceProperties["state"] = *curInstance.State.Name
+			instanceProperties["architecture"] = *curInstance.Architecture
+			if curInstance.Platform != nil {
+				instanceProperties["platform"] = *curInstance.Platform
+			}
+
+			if considerTags(instanceTags, filter) {
+				resource := Resource{
+					Provider:     awsProviderName,
+					ID:           *curInstance.InstanceId,
+					Location:     *curInstance.Placement.AvailabilityZone,
+					ResourceType: resourceTypeEc2,
+					LaunchTime:   *curInstance.LaunchTime,
+					Properties:   instanceProperties,
+					Tags:         instanceTags}
+				virtualMachines = append(virtualMachines, &resource)
+			}
 		}
 	}
 

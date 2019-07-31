@@ -1,39 +1,59 @@
 package bill
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/onaio/sre-tooling/infra/bill/validate"
 )
 
-const Command string = "bill"
+const name string = "bill"
 
-func Cli(commandName string, infraSubCommand string, helpSubCommand string, args []string) {
-	if len(args) > 0 {
-		switch args[0] {
-		case validate.Command:
-			validate.Validate()
-		case helpSubCommand:
-			fmt.Println(help(commandName, infraSubCommand, helpSubCommand))
-		default:
-			fmt.Println(help(commandName, infraSubCommand, helpSubCommand))
-			os.Exit(1)
+type Bill struct {
+	helpFlag *bool
+	flagSet  *flag.FlagSet
+	validate *validate.Validate
+}
+
+func (bill *Bill) Init(helpFlagName string, helpFlagDescription string) {
+	bill.flagSet = flag.NewFlagSet(bill.GetName(), flag.ExitOnError)
+	bill.helpFlag = bill.flagSet.Bool(helpFlagName, false, helpFlagDescription)
+	bill.validate = new(validate.Validate)
+	bill.validate.Init(helpFlagName, helpFlagDescription)
+}
+
+func (bill *Bill) GetName() string {
+	return name
+}
+
+func (bill *Bill) GetDescription() string {
+	return "Infrastructure billing commands"
+}
+
+func (bill *Bill) ParseArgs(args []string) {
+	bill.flagSet.Parse(args)
+	if *bill.helpFlag {
+		bill.printHelp()
+	} else if len(args) > 0 {
+		subCommand := args[0]
+
+		switch subCommand {
+		case bill.validate.GetName():
+			bill.validate.ParseArgs(args[1:])
 		}
-		os.Exit(0)
 	} else {
-		fmt.Println(help(commandName, infraSubCommand, helpSubCommand))
-		os.Exit(1)
+		bill.printHelp()
+		os.Exit(2)
 	}
 }
 
-func help(commandName string, infraSubCommand string, helpSubCommand string) string {
+func (bill *Bill) printHelp() {
+	fmt.Println(bill.GetDescription())
+	bill.flagSet.PrintDefaults()
 	text := `
-Usage: %s %s %s [command]
-
 Common commands:
-	%s	Validates whether billing tags for resources are okay
-	%s		Prints this help message
+	%s		%s
 `
-	return fmt.Sprintf(text, commandName, infraSubCommand, Command, validate.Command, helpSubCommand)
+	fmt.Printf(text, bill.validate.GetName(), bill.validate.GetDescription())
 }

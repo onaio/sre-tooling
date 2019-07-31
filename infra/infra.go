@@ -1,44 +1,68 @@
 package infra
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/onaio/sre-tooling/infra/bill"
+	"github.com/onaio/sre-tooling/infra/query"
 )
 
-const Command string = "infra"
+const name string = "infra"
 
-func Cli(commandName string, helpSubCommand string, args []string) {
-	if len(args) > 0 {
-		subCommandArgs := []string{}
-		if len(args) > 1 {
-			subCommandArgs = args[1:]
-		}
+type Infra struct {
+	helpFlag *bool
+	flagSet  *flag.FlagSet
+	bill     *bill.Bill
+	query    *query.Query
+}
 
-		switch args[0] {
-		case bill.Command:
-			bill.Cli(commandName, Command, helpSubCommand, subCommandArgs)
-		case helpSubCommand:
-			fmt.Println(help(commandName, helpSubCommand))
-		default:
-			fmt.Println(help(commandName, helpSubCommand))
-			os.Exit(1)
+func (infra *Infra) Init(helpFlagName string, helpFlagDescription string) {
+	infra.flagSet = flag.NewFlagSet(infra.GetName(), flag.ExitOnError)
+	infra.helpFlag = infra.flagSet.Bool(helpFlagName, false, helpFlagDescription)
+	infra.bill = new(bill.Bill)
+	infra.bill.Init(helpFlagName, helpFlagDescription)
+	infra.query = new(query.Query)
+	infra.query.Init(helpFlagName, helpFlagDescription)
+}
+
+func (infra *Infra) GetName() string {
+	return name
+}
+
+func (infra *Infra) GetDescription() string {
+	return "Infrastructure specific commands"
+}
+
+func (infra *Infra) ParseArgs(args []string) {
+	infra.flagSet.Parse(args)
+	if *infra.helpFlag {
+		infra.printHelp()
+	} else if len(args) > 0 {
+		subCommand := args[0]
+
+		switch subCommand {
+		case infra.bill.GetName():
+			infra.bill.ParseArgs(args[1:])
+		case infra.query.GetName():
+			infra.query.ParseArgs(args[1:])
 		}
-		os.Exit(0)
 	} else {
-		fmt.Println(help(commandName, helpSubCommand))
-		os.Exit(1)
+		infra.printHelp()
+		os.Exit(2)
 	}
 }
 
-func help(commandName string, helpSubCommand string) string {
+func (infra *Infra) printHelp() {
+	fmt.Println(infra.GetDescription())
+	infra.flagSet.PrintDefaults()
 	text := `
-Usage: %s %s [command]
-
 Common commands:
-	%s		Infrastructure billing specific commands
-	%s		Prints this help message
+	%s		%s
+	%s		%s
 `
-	return fmt.Sprintf(text, commandName, Command, bill.Command, helpSubCommand)
+	fmt.Printf(text,
+		infra.bill.GetName(), infra.bill.GetDescription(),
+		infra.query.GetName(), infra.query.GetDescription())
 }
