@@ -1,6 +1,5 @@
 
 build:
-  main: ./main.go
   binary: sre-tooling
   goos:
     - darwin
