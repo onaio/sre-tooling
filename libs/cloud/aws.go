@@ -15,11 +15,11 @@ type AWS struct {
 const awsProviderName string = "AWS"
 const resourceTypeEc2 string = "EC2"
 
-func (aws AWS) getName() string {
+func (aws *AWS) getName() string {
 	return awsProviderName
 }
 
-func (a AWS) getAllResources(filter *Filter, quiet bool) ([]*Resource, error) {
+func (a *AWS) getAllResources(filter *Filter, quiet bool) ([]*Resource, error) {
 	resources := []*Resource{}
 	regions, regionErr := a.getRegions()
 	if regionErr != nil {
@@ -42,7 +42,7 @@ func (a AWS) getAllResources(filter *Filter, quiet bool) ([]*Resource, error) {
 	return resources, nil
 }
 
-func (a AWS) getRegions() ([]string, error) {
+func (a *AWS) getRegions() ([]string, error) {
 	regions := []string{}
 	session := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -60,7 +60,7 @@ func (a AWS) getRegions() ([]string, error) {
 	return regions, nil
 }
 
-func (a AWS) getEC2InstancesInRegion(region *string, filter *Filter, quiet bool) ([]*Resource, error) {
+func (a *AWS) getEC2InstancesInRegion(region *string, filter *Filter, quiet bool) ([]*Resource, error) {
 	if !quiet {
 		fmt.Printf("Getting AWS EC2 instances in %s\n", *region)
 	}
@@ -121,13 +121,13 @@ func (a AWS) getEC2InstancesInRegion(region *string, filter *Filter, quiet bool)
 	return virtualMachines, nil
 }
 
-func (a AWS) addStringProperty(propName string, propValue *string, properties *map[string]string) {
+func (a *AWS) addStringProperty(propName string, propValue *string, properties *map[string]string) {
 	if propValue != nil {
 		(*properties)[propName] = *propValue
 	}
 }
 
-func (a AWS) addTimeProperty(propName string, propValue *time.Time, properties *map[string]string) {
+func (a *AWS) addTimeProperty(propName string, propValue *time.Time, properties *map[string]string) {
 	if propValue != nil {
 		(*properties)[propName] = time.Time.String(*propValue)
 	}

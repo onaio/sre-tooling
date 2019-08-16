@@ -36,7 +36,7 @@ const tagFlagSeparator = ":"
 func GetAllCloudResources(filter *Filter, quiet bool) ([]*Resource, error) {
 	allResources := []*Resource{}
 
-	aws := AWS{}
+	aws := new(AWS)
 	if considerProvider(aws, filter) {
 		awsResources, awsErr := aws.getAllResources(filter, quiet)
 		if awsErr != nil {
