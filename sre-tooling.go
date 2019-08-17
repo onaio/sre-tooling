@@ -2,23 +2,23 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	"github.com/onaio/sre-tooling/infra"
+	"github.com/onaio/sre-tooling/libs/cli"
 )
 
 type SRETooling struct {
-	helpFlag *bool
-	infra    *infra.Infra
+	helpFlag    *bool
+	subCommands []cli.Command
 }
 
 func (sreTooling *SRETooling) Init(helpFlagName string, helpFlagDescription string) {
 	sreTooling.helpFlag = flag.Bool(helpFlagName, false, helpFlagDescription)
 
-	sreTooling.infra = new(infra.Infra)
-	sreTooling.infra.Init(helpFlagName, helpFlagDescription)
-
+	infra := new(infra.Infra)
+	infra.Init(helpFlagName, helpFlagDescription)
+	sreTooling.subCommands = []cli.Command{infra}
 	flag.Parse()
 }
 
@@ -30,29 +30,16 @@ func (sreTooling *SRETooling) GetDescription() string {
 	return "SRE swiss army knife"
 }
 
-func (sreTooling *SRETooling) ParseArgs(args []string) {
-	if *sreTooling.helpFlag {
-		sreTooling.printHelp()
-	} else if len(args) > 0 {
-		subCommand := args[0]
-
-		switch subCommand {
-		case sreTooling.infra.GetName():
-			sreTooling.infra.ParseArgs(args[1:])
-		}
-	} else {
-		sreTooling.printHelp()
-		os.Exit(2)
-	}
+func (sreTooling *SRETooling) GetFlagSet() *flag.FlagSet {
+	return nil
 }
 
-func (sreTooling *SRETooling) printHelp() {
-	fmt.Println(sreTooling.GetDescription())
-	flag.PrintDefaults()
-	text := `
-Common commands:
-	%s		%s
-`
-	fmt.Printf(text, sreTooling.infra.GetName(), sreTooling.infra.GetDescription())
-
+func (sreTooling *SRETooling) GetSubCommands() []cli.Command {
+	return sreTooling.subCommands
 }
+
+func (sreTooling *SRETooling) GetHelpFlag() *bool {
+	return sreTooling.helpFlag
+}
+
+func (sreTooling *SRETooling) Process() {}

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
 	"github.com/onaio/sre-tooling/libs/cloud"
 	"github.com/onaio/sre-tooling/libs/notification"
@@ -21,12 +22,14 @@ type Validate struct {
 	regionFlag   *flags.StringArray
 	typeFlag     *flags.StringArray
 	tagFlag      *flags.StringArray
+	subCommands  []cli.Command
 }
 
 func (validate *Validate) Init(helpFlagName string, helpFlagDescription string) {
 	validate.flagSet = flag.NewFlagSet(validate.GetName(), flag.ExitOnError)
 	validate.helpFlag = validate.flagSet.Bool(helpFlagName, false, helpFlagDescription)
 	validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag = cloud.AddFilterFlags(validate.flagSet)
+	validate.subCommands = []cli.Command{}
 }
 
 func (validate *Validate) GetName() string {
@@ -37,27 +40,30 @@ func (validate *Validate) GetDescription() string {
 	return "Validates whether billing tags for resources are okay"
 }
 
-func (validate *Validate) ParseArgs(args []string) {
-	validate.flagSet.Parse(args)
-	if *validate.helpFlag {
-		validate.printHelp()
-	} else {
-		validate.validate()
-	}
+func (validate *Validate) GetFlagSet() *flag.FlagSet {
+	return validate.flagSet
 }
 
-func (validate *Validate) validate() {
+func (validate *Validate) GetSubCommands() []cli.Command {
+	return validate.subCommands
+}
+
+func (validate *Validate) GetHelpFlag() *bool {
+	return validate.helpFlag
+}
+
+func (validate *Validate) Process() {
 	requiredTagsString := os.Getenv(requiredTagsEnvVar)
 	if len(requiredTagsString) == 0 {
 		notification.SendMessage(fmt.Sprintf("%s not set", requiredTagsEnvVar))
-		os.Exit(1)
+		cli.ExitCommandExecutionError()
 	}
 	requiredTags := strings.Split(requiredTagsString, ",")
 
 	allResources, resourcesErr := cloud.GetAllCloudResources(cloud.GetFiltersFromCommandFlags(validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag), false)
 	if resourcesErr != nil {
 		notification.SendMessage(resourcesErr.Error())
-		os.Exit(1)
+		cli.ExitCommandExecutionError()
 	}
 
 	fmt.Printf("Checking %d resources\n", len(allResources))
@@ -74,13 +80,8 @@ func (validate *Validate) validate() {
 
 	if !allGood {
 		notification.SendMessage(errMessage)
-		os.Exit(1)
+		cli.ExitCommandExecutionError()
 	}
-}
-
-func (validate *Validate) printHelp() {
-	fmt.Println(validate.GetDescription())
-	validate.flagSet.PrintDefaults()
 }
 
 func getItemsInANotB(a *[]string, b *[]string) []string {

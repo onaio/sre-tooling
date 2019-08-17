@@ -2,11 +2,10 @@ package query
 
 import (
 	"flag"
-	"fmt"
-	"os"
 	"sort"
 	"strings"
 
+	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
 	"github.com/onaio/sre-tooling/libs/cloud"
 	"github.com/onaio/sre-tooling/libs/notification"
@@ -26,6 +25,7 @@ type Query struct {
 	fieldSeparatorFlag    *string
 	resourceSeparatorFlag *string
 	listFieldsFlag        *bool
+	subCommands           []cli.Command
 }
 
 func (query *Query) Init(helpFlagName string, helpFlagDescription string) {
@@ -38,6 +38,7 @@ func (query *Query) Init(helpFlagName string, helpFlagDescription string) {
 	query.fieldSeparatorFlag = query.flagSet.String("field-separator", "\t", "What to use to separate displayed fields")
 	query.resourceSeparatorFlag = query.flagSet.String("resource-separator", "\n", "What to use to separate displayed resources")
 	query.listFieldsFlag = query.flagSet.Bool("list-fields", false, "Whether to just list the fields available to be displayed, instead of the resources")
+	query.subCommands = []cli.Command{}
 }
 
 func (query *Query) GetName() string {
@@ -48,25 +49,28 @@ func (query *Query) GetDescription() string {
 	return "Queries infrastructure resources and prints out requested fields"
 }
 
-func (query *Query) ParseArgs(args []string) {
-	query.flagSet.Parse(args)
-	if *query.helpFlag {
-		query.printHelp()
-	} else {
-		query.query()
-	}
+func (query *Query) GetFlagSet() *flag.FlagSet {
+	return query.flagSet
 }
 
-func (query *Query) query() {
+func (query *Query) GetSubCommands() []cli.Command {
+	return query.subCommands
+}
+
+func (query *Query) GetHelpFlag() *bool {
+	return query.helpFlag
+}
+
+func (query *Query) Process() {
 	if len(*query.regionFlag) == 0 && len(*query.typeFlag) == 0 && len(*query.tagFlag) == 0 {
 		notification.SendMessage("You need to filter resources using at least one region, type, or tag")
-		os.Exit(1)
+		cli.ExitCommandExecutionError()
 	}
 
 	allResources, resourcesErr := cloud.GetAllCloudResources(cloud.GetFiltersFromCommandFlags(query.providerFlag, query.regionFlag, query.typeFlag, query.tagFlag), true)
 	if resourcesErr != nil {
 		notification.SendMessage(resourcesErr.Error())
-		os.Exit(1)
+		cli.ExitCommandExecutionError()
 	}
 
 	rows := make([]map[string]string, len(allResources))
@@ -138,9 +142,4 @@ func (query *Query) considerField(field string) bool {
 	}
 
 	return false
-}
-
-func (query *Query) printHelp() {
-	fmt.Println(query.GetDescription())
-	query.flagSet.PrintDefaults()
 }
