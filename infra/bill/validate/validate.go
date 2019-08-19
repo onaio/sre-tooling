@@ -56,7 +56,7 @@ func (validate *Validate) Process() {
 	requiredTagsString := os.Getenv(requiredTagsEnvVar)
 	if len(requiredTagsString) == 0 {
 		notification.SendMessage(fmt.Sprintf("%s not set", requiredTagsEnvVar))
-		cli.ExitCommandExecutionError()
+		cli.ExitCommandInterpretationError()
 	}
 	requiredTags := strings.Split(requiredTagsString, ",")
 
