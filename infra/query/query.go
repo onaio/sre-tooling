@@ -64,7 +64,7 @@ func (query *Query) GetHelpFlag() *bool {
 func (query *Query) Process() {
 	if len(*query.regionFlag) == 0 && len(*query.typeFlag) == 0 && len(*query.tagFlag) == 0 {
 		notification.SendMessage("You need to filter resources using at least one region, type, or tag")
-		cli.ExitCommandExecutionError()
+		cli.ExitCommandInterpretationError()
 	}
 
 	allResources, resourcesErr := cloud.GetAllCloudResources(cloud.GetFiltersFromCommandFlags(query.providerFlag, query.regionFlag, query.typeFlag, query.tagFlag), true)
