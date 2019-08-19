@@ -64,7 +64,7 @@ func AddFilterFlags(flagSet *flag.FlagSet) (*flags.StringArray, *flags.StringArr
 	regionFlag := new(flags.StringArray)
 	flagSet.Var(regionFlag, "region", "Name of a provider region to filter using. Multiple values can be provided by specifying multiple -region")
 	typeFlag := new(flags.StringArray)
-	flagSet.Var(typeFlag, "type", "Resource type to filter using e.g. \"EC2\". Multiple values can be provided by specifying multiple -type")
+	flagSet.Var(typeFlag, "resource-type", "Resource type to filter using e.g. \"EC2\". Multiple values can be provided by specifying multiple -type")
 	tagFlag := new(flags.StringArray)
 	flagSet.Var(tagFlag, "tag", "Resource tag to filter using. Use the format \"tagKey"+tagFlagSeparator+"tagValue\". Multiple values can be provided by specifying multiple -tag")
 
