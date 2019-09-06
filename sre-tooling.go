@@ -6,6 +6,7 @@ import (
 
 	"github.com/onaio/sre-tooling/infra"
 	"github.com/onaio/sre-tooling/libs/cli"
+	"github.com/onaio/sre-tooling/monitoring"
 )
 
 type SRETooling struct {
@@ -18,7 +19,9 @@ func (sreTooling *SRETooling) Init(helpFlagName string, helpFlagDescription stri
 
 	infra := new(infra.Infra)
 	infra.Init(helpFlagName, helpFlagDescription)
-	sreTooling.subCommands = []cli.Command{infra}
+	monitoring := new(monitoring.Monitoring)
+	monitoring.Init(helpFlagName, helpFlagDescription)
+	sreTooling.subCommands = []cli.Command{infra, monitoring}
 	flag.Parse()
 }
 
