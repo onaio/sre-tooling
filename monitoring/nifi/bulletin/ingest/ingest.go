@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -22,6 +23,35 @@ type Ingest struct {
 	subCommands []cli.Command
 	next        *int
 	limit       *int
+}
+
+// APIResponse does..
+type APIResponse struct {
+	BulletinBoard BulletinBoard `json:"bulletinBoard"`
+}
+
+// BulletinBoard does..
+type BulletinBoard struct {
+	Bulletins []BulletinProcessor `json:"bulletins"`
+	Generated string              `json:"generated"`
+}
+
+// BulletinProcessor does...
+type BulletinProcessor struct {
+	GroupID  string   `json:"groupId"`
+	SourceID string   `json:"sourceId"`
+	CanRead  bool     `json:"canRead"`
+	Bulletin Bulletin `json:"bulletin"`
+}
+
+// Bulletin does...
+type Bulletin struct {
+	ID         int    `json:"id"`
+	Category   string `json:"category"`
+	SourceName string `json:"sourceName"`
+	Level      string `json:"level"`
+	Message    string `json:"message"`
+	Timestamp  string `json:"timestamp"`
 }
 
 // Init does...
@@ -72,7 +102,7 @@ func (ingest *Ingest) Process() {
 	q := req.URL.Query()
 	q.Add("next", strconv.Itoa(*ingest.next))
 
-	if *ingest.limit == 0 {
+	if *ingest.limit != 0 {
 		q.Add("limit", strconv.Itoa(*ingest.limit))
 	}
 
@@ -93,6 +123,20 @@ func (ingest *Ingest) Process() {
 		cli.ExitCommandExecutionError()
 	}
 
-	fmt.Println(resp.Status)
-	fmt.Println(string(respBody))
+	if resp.StatusCode != 200 {
+		notification.SendMessage(fmt.Sprintf("Status from NiFi bulletin API is %d", resp.StatusCode))
+		cli.ExitCommandExecutionError()
+	}
+
+	var apiResponse APIResponse
+	marshallErr := json.Unmarshal(respBody, &apiResponse)
+
+	if marshallErr != nil {
+		notification.SendMessage(marshallErr.Error())
+		cli.ExitCommandExecutionError()
+	}
+
+	val, _ := json.Marshal(apiResponse)
+
+	fmt.Printf("%s", string(val))
 }
