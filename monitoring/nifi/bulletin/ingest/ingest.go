@@ -8,7 +8,10 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
+	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/notification"
 )
@@ -89,6 +92,14 @@ func (ingest *Ingest) GetHelpFlag() *bool {
 
 // Process does...
 func (ingest *Ingest) Process() {
+	err := sentry.Init(sentry.ClientOptions{
+		Dsn: "dsn",
+	})
+
+	if err != nil {
+		fmt.Printf("Sentry initialization failed: %v\n", err)
+	}
+
 	client := &http.Client{}
 	apiURL := os.Getenv(nifiBulletinBoardAPIURLEnvVar)
 	req, requestErr := http.NewRequest("GET", apiURL, nil)
@@ -136,7 +147,21 @@ func (ingest *Ingest) Process() {
 		cli.ExitCommandExecutionError()
 	}
 
-	val, _ := json.Marshal(apiResponse)
-
-	fmt.Printf("%s", string(val))
+	for _, currBulletin := range apiResponse.BulletinBoard.Bulletins {
+		event := sentry.NewEvent()
+		event.Message = currBulletin.Bulletin.Message
+		event.EventID = sentry.EventID(currBulletin.Bulletin.ID)
+		event.Level = sentry.Level(strings.ToLower(currBulletin.Bulletin.Level))
+		event.Tags["category"] = currBulletin.Bulletin.Category
+		event.Tags["ID"] = string(currBulletin.Bulletin.ID)
+		event.Tags["sourceID"] = currBulletin.SourceID
+		event.Tags["groupID"] = currBulletin.GroupID
+		event.Tags["sourceName"] = currBulletin.Bulletin.SourceName
+		event.Tags["timestamp"] = currBulletin.Bulletin.Timestamp
+		event.Tags["runtime"] = "NiFi-1.8.0"
+		event.Tags["runtime.name"] = "NiFi"
+		event.Fingerprint = []string{currBulletin.GroupID}
+		sentry.CaptureEvent(event)
+	}
+	sentry.Flush(time.Second * 30)
 }
