@@ -112,7 +112,7 @@ func (calculate *Calculate) Process() {
 	}
 
 	// Calculate the new index
-	newIndex, newIndexErr := getNewResourceIndex(
+	newIndex, newIndexErr := GetNewResourceIndex(
 		calculate.idFlag,
 		calculate.indexTagFlag,
 		allResources)
@@ -123,11 +123,11 @@ func (calculate *Calculate) Process() {
 	notification.SendMessage(strconv.Itoa(newIndex))
 }
 
-// getNewResourceIndex calculates the new index for the resource with the ID specified in resourceID.
+// GetNewResourceIndex calculates the new index for the resource with the ID specified in resourceID.
 // An error will be returned if:
 // 	- No resource with the ID specified in resourceID is found in resourceMap
 // 	- The new index is not different from the current index of the resource
-func getNewResourceIndex(
+func GetNewResourceIndex(
 	resourceID *string,
 	indexTag *string,
 	resources []*cloud.Resource) (int, error) {
@@ -205,7 +205,7 @@ func getResourceIndex(resource *cloud.Resource, indexTag *string) (int, error) {
 func getRandomInt(maxPossibleValue int) int {
 	if maxPossibleValue > 0 {
 		return rand.Intn(maxPossibleValue)
-	} else {
-		return 0
 	}
+
+	return 0
 }
