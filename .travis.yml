@@ -11,7 +11,7 @@ env:
     - GO111MODULE=on RELEASE=true
 
 script:
-  - go test
+  - go test -v ./...
 
 deploy:
   - provider: script
