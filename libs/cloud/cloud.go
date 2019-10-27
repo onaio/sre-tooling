@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"errors"
 	"flag"
 	"reflect"
 	"strings"
@@ -10,8 +11,10 @@ import (
 )
 
 type Provider interface {
+	init()
 	getName() string
 	getAllResources(filter *Filter, quiet bool) ([]*Resource, error)
+	updateResourceTag(resource *Resource, tagKey *string, tagValue *string) error
 }
 
 type Resource struct {
@@ -19,6 +22,7 @@ type Resource struct {
 	ID           string
 	Location     string
 	ResourceType string
+	Region       string
 	LaunchTime   time.Time
 	Tags         map[string]string
 	Properties   map[string]string
@@ -38,6 +42,7 @@ func GetAllCloudResources(filter *Filter, quiet bool) ([]*Resource, error) {
 
 	aws := new(AWS)
 	if considerProvider(aws, filter) {
+		aws.init()
 		awsResources, awsErr := aws.getAllResources(filter, quiet)
 		if awsErr != nil {
 			return nil, awsErr
@@ -46,6 +51,16 @@ func GetAllCloudResources(filter *Filter, quiet bool) ([]*Resource, error) {
 	}
 
 	return allResources, nil
+}
+
+func updateResourceTag(resource *Resource, tagKey *string, tagValue *string) error {
+	switch resource.Provider {
+	case awsProviderName:
+
+	default:
+		return errors.New("Provider " + resource.Provider + " doesn't exist")
+	}
+	return nil
 }
 
 func GetTagKeys(resource *Resource) []string {

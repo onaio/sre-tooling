@@ -3,7 +3,6 @@ package calculate
 import (
 	"flag"
 	"fmt"
-	"math/rand"
 	"strconv"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/onaio/sre-tooling/libs/cli/flags"
 	"github.com/onaio/sre-tooling/libs/cloud"
 	"github.com/onaio/sre-tooling/libs/notification"
+	"github.com/onaio/sre-tooling/libs/numbers"
 )
 
 const name string = "calculate"
@@ -94,7 +94,7 @@ func (calculate *Calculate) Process() {
 	}
 
 	// Sleep for some random amount of time
-	sleepTime := getRandomInt(*calculate.randomSleepFlag)
+	sleepTime := numbers.GetRandomInt(*calculate.randomSleepFlag)
 	if sleepTime > 0 {
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 	}
@@ -198,14 +198,4 @@ func getResourceIndex(resource *cloud.Resource, indexTag *string) (int, error) {
 	}
 
 	return resourceIndex, nil
-}
-
-// getRandomInt returns a random integer between 1 and maxPossibleValue. If maxPossibleValue is
-// less than or equal to 0, then 0 is returned
-func getRandomInt(maxPossibleValue int) int {
-	if maxPossibleValue > 0 {
-		return rand.Intn(maxPossibleValue)
-	}
-
-	return 0
 }
