@@ -1,10 +1,12 @@
 package query
 
 import (
+	"bytes"
 	"flag"
 	"sort"
 	"strings"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
 	"github.com/onaio/sre-tooling/libs/cloud"
@@ -22,9 +24,11 @@ type Query struct {
 	tagFlag               *flags.StringArray
 	showFlag              *flags.StringArray
 	hideHeadersFlag       *bool
+	csv                   *bool
 	fieldSeparatorFlag    *string
 	resourceSeparatorFlag *string
 	listFieldsFlag        *bool
+	defaultFieldValueFlag *string
 	subCommands           []cli.Command
 }
 
@@ -35,9 +39,11 @@ func (query *Query) Init(helpFlagName string, helpFlagDescription string) {
 	query.showFlag = new(flags.StringArray)
 	query.flagSet.Var(query.showFlag, "show", "Resource's field to be shown e.g tag:Name. Multiple values can be provided by specifying multiple -show")
 	query.hideHeadersFlag = query.flagSet.Bool("hide-headers", false, "Whether to hide the names of the fields shown")
-	query.fieldSeparatorFlag = query.flagSet.String("field-separator", "\t", "What to use to separate displayed fields")
-	query.resourceSeparatorFlag = query.flagSet.String("resource-separator", "\n", "What to use to separate displayed resources")
+	query.csv = query.flagSet.Bool("csv", false, "Whether output should follow the CSV standard")
+	query.fieldSeparatorFlag = query.flagSet.String("field-separator", "\t", "What to use to separate displayed fields. Only applies if -csv is enabled")
+	query.resourceSeparatorFlag = query.flagSet.String("resource-separator", "\n", "What to use to separate displayed resources. Only applies of -list-fields or -csv is enabled")
 	query.listFieldsFlag = query.flagSet.Bool("list-fields", false, "Whether to just list the fields available to be displayed, instead of the resources")
+	query.defaultFieldValueFlag = query.flagSet.String("default-field-value", "", "Text that should be set if a resource's queried field doesn't have a value")
 	query.subCommands = []cli.Command{}
 }
 
@@ -91,27 +97,41 @@ func (query *Query) Process() {
 	if *query.listFieldsFlag {
 		output = strings.Join(displayedHeaders, *query.resourceSeparatorFlag)
 	} else {
-		if !*query.hideHeadersFlag {
-			output = strings.Join(displayedHeaders, *query.fieldSeparatorFlag) + *query.resourceSeparatorFlag
+		buf := new(bytes.Buffer)
+		table := tablewriter.NewWriter(buf)
+		table.SetAlignment(tablewriter.ALIGN_LEFT)
+		table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+		table.SetAutoFormatHeaders(false)
+		if *query.csv {
+			table.SetTablePadding("")
+			table.SetAutoWrapText(false)
+			table.SetBorder(false)
+			table.SetHeaderLine(false)
+			table.SetCenterSeparator("")
+			table.SetRowLine(false)
+			table.SetNewLine(*query.resourceSeparatorFlag)
+			table.SetColumnSeparator(*query.fieldSeparatorFlag)
 		}
 
-		for rowIndex, curRow := range rows {
-			rowOutput := ""
-			for _, curHeader := range displayedHeaders {
-				if len(rowOutput) != 0 {
-					rowOutput = rowOutput + *query.fieldSeparatorFlag
-				}
-				if curField, ok := curRow[curHeader]; ok {
-					rowOutput = rowOutput + curField
-				} else {
-					rowOutput = rowOutput + " "
-				}
-			}
-			output = output + rowOutput
-			if rowIndex < len(rows)-1 {
-				output = output + *query.resourceSeparatorFlag
-			}
+		if !*query.hideHeadersFlag {
+			table.SetHeader(displayedHeaders)
 		}
+
+		for _, curRow := range rows {
+			rowSlice := []string{}
+			for _, curHeader := range displayedHeaders {
+				fieldVal := *query.defaultFieldValueFlag
+				if curField, ok := curRow[curHeader]; ok {
+					fieldVal = curField
+				}
+
+				rowSlice = append(rowSlice, fieldVal)
+			}
+			table.Append(rowSlice)
+		}
+
+		table.Render()
+		output = buf.String()
 	}
 
 	notification.SendMessage(output)
