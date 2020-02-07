@@ -28,33 +28,18 @@ type Ingest struct {
 	limit       *int
 }
 
-// APIResponse does..
-type APIResponse struct {
-	BulletinBoard BulletinBoard `json:"bulletinBoard"`
+type NiFiEvent interface {
+	GetCategory() string
+	GetId() string
+	GetSourceId() string
+	GetGroupId() string
+	GetSourceName() string
+	GetTimestamp() string
+	GetRuntime() string
+	GetRuntimeName() string
 }
 
-// BulletinBoard does..
-type BulletinBoard struct {
-	Bulletins []BulletinProcessor `json:"bulletins"`
-	Generated string              `json:"generated"`
-}
-
-// BulletinProcessor does...
-type BulletinProcessor struct {
-	GroupID  string   `json:"groupId"`
-	SourceID string   `json:"sourceId"`
-	CanRead  bool     `json:"canRead"`
-	Bulletin Bulletin `json:"bulletin"`
-}
-
-// Bulletin does...
-type Bulletin struct {
-	ID         int    `json:"id"`
-	Category   string `json:"category"`
-	SourceName string `json:"sourceName"`
-	Level      string `json:"level"`
-	Message    string `json:"message"`
-	Timestamp  string `json:"timestamp"`
+type NiFiApi interface {
 }
 
 // Init does...
