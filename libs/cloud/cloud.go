@@ -1,7 +1,6 @@
 package cloud
 
 import (
-	"errors"
 	"flag"
 	"reflect"
 	"strings"
@@ -11,10 +10,8 @@ import (
 )
 
 type Provider interface {
-	init()
 	getName() string
 	getAllResources(filter *Filter, quiet bool) ([]*Resource, error)
-	updateResourceTag(resource *Resource, tagKey *string, tagValue *string) error
 }
 
 type Resource struct {
@@ -22,7 +19,6 @@ type Resource struct {
 	ID           string
 	Location     string
 	ResourceType string
-	Region       string
 	LaunchTime   time.Time
 	Tags         map[string]string
 	Properties   map[string]string
@@ -42,7 +38,6 @@ func GetAllCloudResources(filter *Filter, quiet bool) ([]*Resource, error) {
 
 	aws := new(AWS)
 	if considerProvider(aws, filter) {
-		aws.init()
 		awsResources, awsErr := aws.getAllResources(filter, quiet)
 		if awsErr != nil {
 			return nil, awsErr
@@ -51,16 +46,6 @@ func GetAllCloudResources(filter *Filter, quiet bool) ([]*Resource, error) {
 	}
 
 	return allResources, nil
-}
-
-func updateResourceTag(resource *Resource, tagKey *string, tagValue *string) error {
-	switch resource.Provider {
-	case awsProviderName:
-
-	default:
-		return errors.New("Provider " + resource.Provider + " doesn't exist")
-	}
-	return nil
 }
 
 func GetTagKeys(resource *Resource) []string {
@@ -79,7 +64,7 @@ func AddFilterFlags(flagSet *flag.FlagSet) (*flags.StringArray, *flags.StringArr
 	regionFlag := new(flags.StringArray)
 	flagSet.Var(regionFlag, "region", "Name of a provider region to filter using. Multiple values can be provided by specifying multiple -region")
 	typeFlag := new(flags.StringArray)
-	flagSet.Var(typeFlag, "resource-type", "Resource type to filter using e.g. \"EC2\". Multiple values can be provided by specifying multiple -type")
+	flagSet.Var(typeFlag, "type", "Resource type to filter using e.g. \"EC2\". Multiple values can be provided by specifying multiple -type")
 	tagFlag := new(flags.StringArray)
 	flagSet.Var(tagFlag, "tag", "Resource tag to filter using. Use the format \"tagKey"+tagFlagSeparator+"tagValue\". Multiple values can be provided by specifying multiple -tag")
 
