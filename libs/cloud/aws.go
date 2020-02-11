@@ -87,7 +87,7 @@ func (a *AWS) getEC2InstancesInRegion(wg *sync.WaitGroup, region string, filter 
 	}))
 
 	ec2Service := ec2.New(session)
-	ec2Instances, ec2InstancesErr := ec2Service.DescribeInstances(nil)
+	ec2Instances, ec2InstancesErr := ec2Service.DescribeInstances(a.constructAWSDescribeInstancesInput(filter))
 
 	if ec2InstancesErr != nil {
 		finalErr = ec2InstancesErr
@@ -117,22 +117,39 @@ func (a *AWS) getEC2InstancesInRegion(wg *sync.WaitGroup, region string, filter 
 				a.addStringProperty("architecture", curInstance.Architecture, &instanceProperties)
 				a.addStringProperty("platform", curInstance.Platform, &instanceProperties)
 
-				if considerTags(instanceTags, filter) {
-					resource := Resource{
-						Provider:     awsProviderName,
-						ID:           *curInstance.InstanceId,
-						Location:     *curInstance.Placement.AvailabilityZone,
-						ResourceType: resourceTypeEc2,
-						LaunchTime:   *curInstance.LaunchTime,
-						Properties:   instanceProperties,
-						Tags:         instanceTags}
-					virtualMachines = append(virtualMachines, &resource)
-				}
+				resource := Resource{
+					Provider:     awsProviderName,
+					ID:           *curInstance.InstanceId,
+					Location:     *curInstance.Placement.AvailabilityZone,
+					ResourceType: resourceTypeEc2,
+					LaunchTime:   *curInstance.LaunchTime,
+					Properties:   instanceProperties,
+					Tags:         instanceTags}
+				virtualMachines = append(virtualMachines, &resource)
 			}
 		}
 	}
 
 	handler(&region, virtualMachines, finalErr)
+}
+
+func (a *AWS) constructAWSDescribeInstancesInput(filter *Filter) *ec2.DescribeInstancesInput {
+	if len(filter.Tags) == 0 {
+		return nil
+	}
+
+	var filters []*ec2.Filter
+	for curTagKey, curTagValue := range filter.Tags {
+		filterName := "tag:" + curTagKey
+		filters = append(filters, &ec2.Filter{
+			Name:   &filterName,
+			Values: []*string{&curTagValue},
+		})
+	}
+
+	return &ec2.DescribeInstancesInput{
+		Filters: filters,
+	}
 }
 
 func (a *AWS) addStringProperty(propName string, propValue *string, properties *map[string]string) {
