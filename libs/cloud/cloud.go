@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"errors"
 	"flag"
 	"reflect"
 	"strings"
@@ -12,6 +13,7 @@ import (
 type Provider interface {
 	getName() string
 	getAllResources(filter *Filter, quiet bool) ([]*Resource, error)
+	updateResourceTag(region *string, resource *Resource, tagKey *string, tagValue *string) error
 }
 
 type Resource struct {
@@ -60,13 +62,13 @@ func GetTagKeys(resource *Resource) []string {
 
 func AddFilterFlags(flagSet *flag.FlagSet) (*flags.StringArray, *flags.StringArray, *flags.StringArray, *flags.StringArray) {
 	providerFlag := new(flags.StringArray)
-	flagSet.Var(providerFlag, "provider", "Name of provider to filter using. Multiple values can be provided by specifying multiple -provider")
+	flagSet.Var(providerFlag, "filter-provider", "Name of provider to filter using. Multiple values can be provided by specifying multiple -filter-provider")
 	regionFlag := new(flags.StringArray)
-	flagSet.Var(regionFlag, "region", "Name of a provider region to filter using. Multiple values can be provided by specifying multiple -region")
+	flagSet.Var(regionFlag, "filter-region", "Name of a provider region to filter using. Multiple values can be provided by specifying multiple -filter-region")
 	typeFlag := new(flags.StringArray)
-	flagSet.Var(typeFlag, "type", "Resource type to filter using e.g. \"EC2\". Multiple values can be provided by specifying multiple -type")
+	flagSet.Var(typeFlag, "filter-type", "Resource type to filter using e.g. \"EC2\". Multiple values can be provided by specifying multiple -filter-type")
 	tagFlag := new(flags.StringArray)
-	flagSet.Var(tagFlag, "tag", "Resource tag to filter using. Use the format \"tagKey"+tagFlagSeparator+"tagValue\". Multiple values can be provided by specifying multiple -tag")
+	flagSet.Var(tagFlag, "filter-tag", "Resource tag to filter using. Use the format \"tagKey"+tagFlagSeparator+"tagValue\". Multiple values can be provided by specifying multiple -filter-tag")
 
 	return providerFlag, regionFlag, typeFlag, tagFlag
 }
@@ -95,6 +97,16 @@ func GetFiltersFromCommandFlags(providerFlag *flags.StringArray, regionFlag *fla
 	}
 
 	return &filter
+}
+
+func UpdateResourceTag(region *string, resource *Resource, tagKey *string, tagValue *string) error {
+	switch resource.Provider {
+	case awsProviderName:
+		aws := new(AWS)
+		return aws.updateResourceTag(region, resource, tagKey, tagValue)
+	default:
+		return errors.New("Provider " + resource.Provider + " doesn't exist")
+	}
 }
 
 func considerProvider(providerIface interface{}, filter *Filter) bool {
