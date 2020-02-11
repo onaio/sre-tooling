@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"github.com/onaio/sre-tooling/infra/index/calculate"
+	"github.com/onaio/sre-tooling/infra/index/update"
 	"github.com/onaio/sre-tooling/libs/cli"
 )
 
@@ -22,7 +23,9 @@ func (index *Index) Init(helpFlagName string, helpFlagDescription string) {
 	index.helpFlag = index.flagSet.Bool(helpFlagName, false, helpFlagDescription)
 	calc := new(calculate.Calculate)
 	calc.Init(helpFlagName, helpFlagDescription)
-	index.subCommands = []cli.Command{calc}
+	update := new(update.Update)
+	update.Init(helpFlagName, helpFlagDescription)
+	index.subCommands = []cli.Command{calc, update}
 }
 
 // GetName returns the value of the name constant

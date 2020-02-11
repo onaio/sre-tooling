@@ -163,3 +163,43 @@ func (a *AWS) addTimeProperty(propName string, propValue *time.Time, properties 
 		(*properties)[propName] = time.Time.String(*propValue)
 	}
 }
+
+func (a *AWS) updateResourceTag(region *string, resource *Resource, tagKey *string, tagValue *string) error {
+	if resource.Provider != awsProviderName {
+		return fmt.Errorf("Resource's provider is %s instead of AWS. Cannot update the tag", resource.Provider)
+	}
+
+	switch resource.ResourceType {
+	case resourceTypeEc2:
+		return a.updateEC2ResourceTag(region, resource, tagKey, tagValue)
+	default:
+		return fmt.Errorf("Unknown resource type %s. Cannot update the tag", resource.ResourceType)
+	}
+}
+
+func (a *AWS) updateEC2ResourceTag(region *string, resource *Resource, tagKey *string, tagValue *string) error {
+	if len(resource.ID) == 0 {
+		return fmt.Errorf("Could not update the EC2 instance tag because the instance's ID is not set")
+	}
+	if len(*tagKey) == 0 {
+		return fmt.Errorf("Could not update the EC2 instance tag because the tag key is not set")
+	}
+
+	awsConfig := aws.Config{
+		Region: region}
+	// Load session from shared config
+	session := session.Must(session.NewSessionWithOptions(session.Options{
+		Config:            awsConfig,
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+
+	ec2Service := ec2.New(session)
+
+	tag := ec2.Tag{Key: tagKey, Value: tagValue}
+	_, creatTagErr := ec2Service.CreateTags(&ec2.CreateTagsInput{
+		Resources: []*string{&resource.ID},
+		Tags:      []*ec2.Tag{&tag},
+	})
+
+	return creatTagErr
+}

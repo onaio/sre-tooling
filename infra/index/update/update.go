@@ -2,49 +2,50 @@ package update
 
 import (
 	"flag"
-	"time"
+	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/onaio/sre-tooling/infra/index/calculate"
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
 	"github.com/onaio/sre-tooling/libs/cloud"
 	"github.com/onaio/sre-tooling/libs/notification"
-	"github.com/onaio/sre-tooling/libs/numbers"
 )
 
 const name string = "update"
+const updateTagsSeparator = ":"
+const updateTagsFormatDescription = "\"TagName" + updateTagsSeparator + "<prefix to prepend before index>" + updateTagsSeparator + "<suffix to append after index>\""
 
 type Update struct {
-	helpFlag           *bool
-	updateHostnameFlag *bool
-	hostnamePrefixFlag *string
-	updateTagsFlag     *flags.StringArray
-	providerFlag       *flags.StringArray
-	regionFlag         *flags.StringArray
-	typeFlag           *flags.StringArray
-	tagFlag            *flags.StringArray
-	idFlag             *string
-	indexTagFlag       *string
-	randomSleepFlag    *int
-	flagSet            *flag.FlagSet
-	subCommands        []cli.Command
+	helpFlag        *bool
+	updateTagsFlag  *flags.StringArray
+	providerFlag    *flags.StringArray
+	regionFlag      *flags.StringArray
+	typeFlag        *flags.StringArray
+	tagFlag         *flags.StringArray
+	idFlag          *string
+	indexTagFlag    *string
+	randomSleepFlag *int
+	flagSet         *flag.FlagSet
+	subCommands     []cli.Command
 }
 
 func (update *Update) Init(helpFlagName string, helpFlagDescription string) {
 	update.flagSet = flag.NewFlagSet(update.GetName(), flag.ExitOnError)
-	update.helpFlag = flag.Bool(helpFlagName, false, helpFlagDescription)
-	update.updateHostnameFlag = flag.Bool("update-hostname", false, "Whether to also update the hostname")
-	update.idFlag = update.flagSet.String("id", "", "The ID of the resource to check the index")
-	update.indexTagFlag = update.flagSet.String("index-tag", "", "The name of the tag containing the indexes of the resources")
-	update.hostnamePrefixFlag = update.flagSet.String("hostname-prefix", "", "The prefix to append to the index when setting the hostname")
-	update.randomSleepFlag = update.flagSet.Int("random-sleep", 0, "Sleep for a random number of seconds between 0 and what is defined before trying to calculate")
-	update.flagSet.Var(update.updateTagsFlag, "update-tag", "Tag to update with index in the form \"TagName:prefix-to-prepend\". Multiple values can be provided by specifying multiple -update-tag")
+	update.helpFlag = update.flagSet.Bool(helpFlagName, false, helpFlagDescription)
+	update.updateTagsFlag = new(flags.StringArray)
+	update.flagSet.Var(update.updateTagsFlag, "update-tag", "Tag to update with index in the form "+updateTagsFormatDescription+". Multiple values can be provided by specifying multiple -update-tag")
 
 	update.providerFlag,
 		update.regionFlag,
 		update.typeFlag,
-		update.tagFlag = cloud.AddFilterFlags(update.flagSet)
-	flag.Parse()
+		update.tagFlag,
+		update.idFlag,
+		update.indexTagFlag,
+		update.randomSleepFlag = calculate.AddCalculateFlags(update.flagSet)
+
+	update.subCommands = []cli.Command{}
 }
 
 func (update *Update) GetName() string {
@@ -52,7 +53,7 @@ func (update *Update) GetName() string {
 }
 
 func (update *Update) GetDescription() string {
-	return "Updates the index as well as resource names tied to the index"
+	return "Updates a resource's tags based on the value of a newly calculated resource index in a group"
 }
 
 func (update *Update) GetFlagSet() *flag.FlagSet {
@@ -68,30 +69,69 @@ func (update *Update) GetHelpFlag() *bool {
 }
 
 func (update *Update) Process() {
-	if len(*update.idFlag) == 0 {
-		notification.SendMessage("You need to provide the ID of the resource you want to check its index")
-		cli.ExitCommandInterpretationError()
-	}
-	if len(*update.indexTagFlag) == 0 {
-		notification.SendMessage("You need to provide the name of the tag containing resource indexes")
+	if len(*update.providerFlag) != 1 {
+		notification.SendMessage("Exactly one provider needs to be specified for the index update command to work")
 		cli.ExitCommandInterpretationError()
 	}
 
-	// Sleep for some random amount of time
-	sleepTime := numbers.GetRandomInt(*update.randomSleepFlag)
-	if sleepTime > 0 {
-		time.Sleep(time.Duration(sleepTime) * time.Second)
+	if len(*update.typeFlag) != 1 {
+		notification.SendMessage("Exactly one resource type needs to be specified for the index update command to work")
+		cli.ExitCommandInterpretationError()
 	}
 
-	// Get the new index
-	newIndex, newIndexErr := calculate.GetNewResourceIndex(
-		calculate.idFlag,
-		calculate.indexTagFlag,
-		allResources)
+	if len(*update.regionFlag) != 1 {
+		notification.SendMessage("Exactly one region type needs to be specified for the index update command to work")
+		cli.ExitCommandInterpretationError()
+	}
+
+	newIndex, newIndexErr := calculate.FetchAndCalculateResourceIndex(
+		update.randomSleepFlag,
+		update.providerFlag,
+		update.regionFlag,
+		update.typeFlag,
+		update.tagFlag,
+		update.idFlag,
+		update.indexTagFlag,
+	)
+
 	if newIndexErr != nil {
 		notification.SendMessage(newIndexErr.Error())
 		cli.ExitCommandExecutionError()
 	}
 
-	// Update the resource's index
+	newIndexStr := strconv.Itoa(newIndex)
+	provider := (*update.providerFlag)[0]
+	resourceType := (*update.typeFlag)[0]
+	region := (*update.regionFlag)[0]
+	resource := cloud.Resource{
+		Provider:     provider,
+		ResourceType: resourceType,
+		ID:           *update.idFlag,
+	}
+
+	// Update other tags
+	for _, curTagDetails := range *update.updateTagsFlag {
+		tagDetails := strings.Split(curTagDetails, updateTagsSeparator)
+		if len(tagDetails) != 3 {
+			notification.SendMessage(fmt.Sprintf("Tags to be updated should be provided in the format %s", updateTagsFormatDescription))
+			cli.ExitCommandExecutionError()
+		}
+		tagValue := fmt.Sprintf("%s%s%s", tagDetails[1], newIndexStr, tagDetails[2])
+		curUpdateErr := cloud.UpdateResourceTag(&region, &resource, &tagDetails[0], &tagValue)
+
+		if curUpdateErr != nil {
+			notification.SendMessage(curUpdateErr.Error())
+			cli.ExitCommandExecutionError()
+		}
+	}
+
+	// Update the resource's index tag last
+	updateErr := cloud.UpdateResourceTag(&region, &resource, update.indexTagFlag, &newIndexStr)
+
+	if updateErr != nil {
+		notification.SendMessage(updateErr.Error())
+		cli.ExitCommandExecutionError()
+	}
+
+	notification.SendMessage(fmt.Sprintf("Tags for the %s resource with ID '%s' successfully updated to match its new index '%s'", provider, *update.idFlag, newIndexStr))
 }

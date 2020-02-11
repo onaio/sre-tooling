@@ -37,14 +37,39 @@ type Calculate struct {
 func (calculate *Calculate) Init(helpFlagName string, helpFlagDescription string) {
 	calculate.flagSet = flag.NewFlagSet(calculate.GetName(), flag.ExitOnError)
 	calculate.helpFlag = calculate.flagSet.Bool(helpFlagName, false, helpFlagDescription)
-	calculate.idFlag = calculate.flagSet.String("id", "", "The ID of the resource to check the index")
-	calculate.indexTagFlag = calculate.flagSet.String("index-tag", "", "The name of the tag containing the indexes of the resources")
-	calculate.randomSleepFlag = calculate.flagSet.Int("random-sleep", 0, "Sleep for a random number of seconds between 0 and what is defined before trying to calculate")
+
 	calculate.providerFlag,
 		calculate.regionFlag,
 		calculate.typeFlag,
-		calculate.tagFlag = cloud.AddFilterFlags(calculate.flagSet)
+		calculate.tagFlag,
+		calculate.idFlag,
+		calculate.indexTagFlag,
+		calculate.randomSleepFlag = AddCalculateFlags(calculate.flagSet)
+
 	calculate.subCommands = []cli.Command{}
+}
+
+// AddCalculateFlags returns the flags required to calculate a resource's index in the order:
+//    id: The ID of the resource
+//    index tag: The index tag to filter the resource group using
+//    random sleep: The maximum random number of seconds to sleep before calculating the index
+func AddCalculateFlags(flagSet *flag.FlagSet) (*flags.StringArray, *flags.StringArray, *flags.StringArray, *flags.StringArray, *string, *string, *int) {
+	providerFlag,
+		regionFlag,
+		typeFlag,
+		tagFlag := cloud.AddFilterFlags(flagSet)
+
+	idFlag := flagSet.String("id", "", "The ID of the resource to check the index")
+	indexTagFlag := flagSet.String("index-tag", "", "The name of the tag containing the indexes of the resources")
+	randomSleepFlag := flagSet.Int("random-sleep", 0, "Sleep for a random number of seconds between 0 and what is defined before trying to calculate")
+
+	return providerFlag,
+		regionFlag,
+		typeFlag,
+		tagFlag,
+		idFlag,
+		indexTagFlag,
+		randomSleepFlag
 }
 
 // GetName returns the value of the name constant
@@ -77,50 +102,72 @@ func (calculate *Calculate) GetHelpFlag() *bool {
 // sends the index to configured notification channels or exit with an exit code
 // 3 if the resource doesn't need to be assigned a new index
 func (calculate *Calculate) Process() {
-	if len(*calculate.idFlag) == 0 {
-		notification.SendMessage("You need to provide the ID of the resource you want to check its index")
-		cli.ExitCommandInterpretationError()
-	}
-	if len(*calculate.indexTagFlag) == 0 {
-		notification.SendMessage("You need to provide the name of the tag containing resource indexes")
-		cli.ExitCommandInterpretationError()
+	newIndex, newIndexErr := FetchAndCalculateResourceIndex(
+		calculate.randomSleepFlag,
+		calculate.providerFlag,
+		calculate.regionFlag,
+		calculate.typeFlag,
+		calculate.tagFlag,
+		calculate.idFlag,
+		calculate.indexTagFlag,
+	)
+
+	if newIndexErr != nil {
+		notification.SendMessage(newIndexErr.Error())
+		cli.ExitCommandExecutionError()
 	}
 
-	if len(*calculate.regionFlag) == 0 &&
-		len(*calculate.typeFlag) == 0 &&
-		len(*calculate.tagFlag) == 0 {
-		notification.SendMessage("You need to filter resources using at least one region, type, or tag")
-		cli.ExitCommandInterpretationError()
+	notification.SendMessage(strconv.Itoa(newIndex))
+}
+
+func FetchAndCalculateResourceIndex(
+	randomSleepFlag *int,
+	providerFlag *flags.StringArray,
+	regionFlag *flags.StringArray,
+	typeFlag *flags.StringArray,
+	tagFlag *flags.StringArray,
+	idFlag *string,
+	indexTagFlag *string) (int, error) {
+	if len(*idFlag) == 0 {
+		return -1, fmt.Errorf("You need to provide the ID of the resource you want to check its index")
+	}
+	if len(*indexTagFlag) == 0 {
+		return -1, fmt.Errorf("You need to provide the name of the tag containing resource indexes")
+	}
+
+	if len(*regionFlag) == 0 &&
+		len(*typeFlag) == 0 &&
+		len(*tagFlag) == 0 {
+		return -1, fmt.Errorf("You need to filter resources using at least one region, type, or tag")
 	}
 
 	// Sleep for some random amount of time
-	sleepTime := numbers.GetRandomInt(*calculate.randomSleepFlag)
+	sleepTime := numbers.GetRandomInt(*randomSleepFlag)
 	if sleepTime > 0 {
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 	}
 
 	allResources, resourcesErr := cloud.GetAllCloudResources(
 		cloud.GetFiltersFromCommandFlags(
-			calculate.providerFlag,
-			calculate.regionFlag,
-			calculate.typeFlag,
-			calculate.tagFlag),
+			providerFlag,
+			regionFlag,
+			typeFlag,
+			tagFlag),
 		true)
 	if resourcesErr != nil {
-		notification.SendMessage(resourcesErr.Error())
-		cli.ExitCommandExecutionError()
+		return -1, resourcesErr
 	}
 
 	// Calculate the new index
 	newIndex, newIndexErr := GetNewResourceIndex(
-		calculate.idFlag,
-		calculate.indexTagFlag,
+		idFlag,
+		indexTagFlag,
 		allResources)
 	if newIndexErr != nil {
-		notification.SendMessage(newIndexErr.Error())
-		cli.ExitCommandExecutionError()
+		return -1, newIndexErr
 	}
-	notification.SendMessage(strconv.Itoa(newIndex))
+
+	return newIndex, nil
 }
 
 // GetNewResourceIndex calculates the new index for the resource with the ID specified in resourceID.

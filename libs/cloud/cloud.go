@@ -1,6 +1,7 @@
 package cloud
 
 import (
+	"errors"
 	"flag"
 	"reflect"
 	"strings"
@@ -12,6 +13,7 @@ import (
 type Provider interface {
 	getName() string
 	getAllResources(filter *Filter, quiet bool) ([]*Resource, error)
+	updateResourceTag(region *string, resource *Resource, tagKey *string, tagValue *string) error
 }
 
 type Resource struct {
@@ -95,6 +97,16 @@ func GetFiltersFromCommandFlags(providerFlag *flags.StringArray, regionFlag *fla
 	}
 
 	return &filter
+}
+
+func UpdateResourceTag(region *string, resource *Resource, tagKey *string, tagValue *string) error {
+	switch resource.Provider {
+	case awsProviderName:
+		aws := new(AWS)
+		return aws.updateResourceTag(region, resource, tagKey, tagValue)
+	default:
+		return errors.New("Provider " + resource.Provider + " doesn't exist")
+	}
 }
 
 func considerProvider(providerIface interface{}, filter *Filter) bool {
