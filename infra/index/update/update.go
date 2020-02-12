@@ -133,5 +133,5 @@ func (update *Update) Process() {
 		cli.ExitCommandExecutionError()
 	}
 
-	notification.SendMessage(fmt.Sprintf("Tags for the %s resource with ID '%s' successfully updated to match its new index '%s'", provider, *update.idFlag, newIndexStr))
+	notification.SendMessage(newIndexStr)
 }
