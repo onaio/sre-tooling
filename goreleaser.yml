@@ -1,15 +1,44 @@
 
-build:
-  binary: sre-tooling
-  goos:
-    - darwin
-    - linux
-    - windows
-  goarch:
-    - amd64
+env:
+  - GO111MODULE=on
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: "sre-tooling"
+    binary: sre-tooling
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+  - id: "aws-lambda"
+    binary: aws-lambda
+    main: ./wrappers/aws-lambda.go
+    goos:
+      - linux
+    goarch:
+      - amd64
+    hooks:
+      # Build the sre-tooling binary
+      pre: go build
 
 archives:
-  - files:
-    - LICENSE
-    - README.md
-    - assets/*
+  - id: "sre-tooling"
+    builds:
+      - sre-tooling
+    files:
+      - LICENSE
+      - README.md
+      - assets/*
+  - id: "aws-lambda"
+    builds:
+      - aws-lambda
+    name_template: "{{ .ProjectName }}_aws-lambda_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: zip
+    files:
+      - LICENSE
+      - sre-tooling
