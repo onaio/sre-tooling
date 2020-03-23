@@ -4,6 +4,7 @@ import (
 	"flag"
 
 	"github.com/onaio/sre-tooling/infra/bill"
+	"github.com/onaio/sre-tooling/infra/expiry"
 	"github.com/onaio/sre-tooling/infra/index"
 	"github.com/onaio/sre-tooling/infra/query"
 	"github.com/onaio/sre-tooling/libs/cli"
@@ -26,7 +27,9 @@ func (infra *Infra) Init(helpFlagName string, helpFlagDescription string) {
 	query.Init(helpFlagName, helpFlagDescription)
 	index := new(index.Index)
 	index.Init(helpFlagName, helpFlagDescription)
-	infra.subCommands = []cli.Command{bill, query, index}
+	expiry := new(expiry.Expiry)
+	expiry.Init(helpFlagName, helpFlagDescription)
+	infra.subCommands = []cli.Command{bill, query, index, expiry}
 }
 
 func (infra *Infra) GetName() string {
