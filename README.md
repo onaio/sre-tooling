@@ -12,36 +12,29 @@ Before you install sre-tooling, make sure your environment is setup and ready fo
 sudo apt install golang
 ```
 
-If you haven't already, set the `GOPATH` environment variable (preferably in any of your local shell environment files e.g ~/.bashrc):
-
-```sh
-export GOPATH=$HOME/go
-```
-
 Enable Go modules:
 
 ```sh
 export GO111MODULE=on
 ```
 
-You will also want to add the bin directory in your GOPATH to your PATH:
+Set the version of SRE Tooling
 
 ```sh
-export PATH=$PATH:$GOPATH/bin
+SRE_TOOLING_VERSION="<version>"
+sed "s/{{ sre_tooling_version }}/$SRE_TOOLING_VERSION/g" version/version_string.go.tpl > version/version_string.go
 ```
 
-Instructions assume you have only one directory in your GOPATH.
-
-Now get the latest version of sre-tooling by running:
+Build SRE Tooling
 
 ```sh
-go get github.com/onaio/sre-tooling
+go build
 ```
 
 You can check whether the binary is installed by running:
 
 ```sh
-sre-tooling -help
+./sre-tooling -help
 ```
 
 ### Environment Variables
