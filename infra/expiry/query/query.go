@@ -106,16 +106,6 @@ func (query *Query) GetHelpFlag() *bool {
 // Process fetches the list of infrastructure that matches the criteria provided by the user
 // and that has expired and sends notifications to the configured notification channels
 func (query *Query) Process() {
-	if len(*query.expiryTagFlag) == 0 && len(*query.maxAgeFlag) == 0 {
-		notification.SendMessage("Either maximum age or expiry tag need to be provided")
-		cli.ExitCommandInterpretationError()
-	}
-
-	if len(*query.expiryTagFlag) > 0 && len(*query.expiryTagFormatFlag) == 0 {
-		notification.SendMessage("If the expiry tag is provided, then the expiry tag format also needs to be provided")
-		cli.ExitCommandInterpretationError()
-	}
-
 	hasResourceErr := false
 	expiryMessage := ""
 	resourceErr := GetExpiredResources(
@@ -167,6 +157,14 @@ func GetExpiredResources(
 	expiryTagNAValueFlag *string,
 	expiryTagFormatFlag *string,
 	expiredResourceHandler ExpiredResourceHandler) error {
+
+	if len(*expiryTagFlag) == 0 && len(*maxAgeFlag) == 0 {
+		return fmt.Errorf("Either maximum age or expiry tag need to be provided")
+	}
+
+	if len(*expiryTagFlag) > 0 && len(*expiryTagFormatFlag) == 0 {
+		return fmt.Errorf("If the expiry tag is provided, then the expiry tag format also needs to be provided")
+	}
 
 	allResources, resourcesErr := cloud.GetAllCloudResources(
 		cloud.GetFiltersFromCommandFlags(

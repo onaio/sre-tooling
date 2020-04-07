@@ -203,3 +203,21 @@ func (a *AWS) updateEC2ResourceTag(region *string, resource *Resource, tagKey *s
 
 	return creatTagErr
 }
+
+func (a *AWS) updateResourceState(resource *Resource, safe bool, state string) error {
+	if resource.Provider != awsProviderName {
+		return fmt.Errorf("Resource's provider is %s instead of AWS. Cannot update the tag", resource.Provider)
+	}
+
+	switch resource.ResourceType {
+	case resourceTypeEc2:
+		return a.updateEC2ResourceState(resource, safe, state)
+	default:
+		return fmt.Errorf("Unknown resource type %s. Cannot update the tag", resource.ResourceType)
+	}
+}
+
+func (a *AWS) updateEC2ResourceState(resource *Resource, safe bool, state string) error {
+
+	return nil
+}

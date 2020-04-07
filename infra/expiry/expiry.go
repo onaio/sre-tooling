@@ -3,6 +3,7 @@ package expiry
 import (
 	"flag"
 
+	"github.com/onaio/sre-tooling/infra/expiry/prune"
 	"github.com/onaio/sre-tooling/infra/expiry/query"
 	"github.com/onaio/sre-tooling/libs/cli"
 )
@@ -22,8 +23,10 @@ func (expiry *Expiry) Init(helpFlagName string, helpFlagDescription string) {
 	expiry.helpFlag = expiry.flagSet.Bool(helpFlagName, false, helpFlagDescription)
 	query := new(query.Query)
 	query.Init(helpFlagName, helpFlagDescription)
+	prune := new(prune.Prune)
+	prune.Init(helpFlagName, helpFlagDescription)
 
-	expiry.subCommands = []cli.Command{query}
+	expiry.subCommands = []cli.Command{query, prune}
 }
 
 // GetName returns the value of the name constant

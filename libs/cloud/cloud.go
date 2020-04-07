@@ -14,6 +14,7 @@ type Provider interface {
 	getName() string
 	getAllResources(filter *Filter, quiet bool) ([]*Resource, error)
 	updateResourceTag(region *string, resource *Resource, tagKey *string, tagValue *string) error
+	updateResourceState(resource *Resource, safe bool, state string) error
 }
 
 type Resource struct {
