@@ -59,16 +59,32 @@ func (rt *ResourceTable) Render(allResources []*Resource) (string, error) {
 	for rowIndex, curResource := range allResources {
 		headers, rows = rt.addResourceTableFields(headers, rows, rowIndex, curResource.Tags, "tag")
 		headers, rows = rt.addResourceTableFields(headers, rows, rowIndex, curResource.Properties, "property")
+		headers, rows = rt.addResourceTableFields(headers, rows, rowIndex, curResource.Data, "data")
 	}
 
 	output := ""
 	displayedHeaders := []string{}
-	for curHeader, includeHeader := range headers {
-		if includeHeader {
-			displayedHeaders = append(displayedHeaders, curHeader)
+	if len(*rt.showFlag) > 0 {
+		// User provided a list of columns they want to see.
+		// Show these properties in the order user specified.
+		for _, curHeaderName := range *rt.showFlag {
+			showHeader, headerExists := headers[curHeaderName]
+			if headerExists && showHeader {
+				displayedHeaders = append(displayedHeaders, curHeaderName)
+			}
 		}
+	} else {
+		// User didn't specify which columns they want to see.
+		// Go through all the returned columns, see if they are
+		// flagged as viewable, and sort them alphabetically.
+		for curHeader, includeHeader := range headers {
+			if includeHeader {
+				displayedHeaders = append(displayedHeaders, curHeader)
+			}
+		}
+		sort.Strings(displayedHeaders)
 	}
-	sort.Strings(displayedHeaders)
+
 	if *rt.listFieldsFlag {
 		output = strings.Join(displayedHeaders, *rt.resourceSeparatorFlag)
 	} else {

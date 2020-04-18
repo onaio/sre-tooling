@@ -13,22 +13,47 @@ import (
 )
 
 const name string = "validate"
+const outputFormatPlain = "plain"
+const outputFormatMarkdown = "markdown"
 const requiredTagsEnvVar = "SRE_INFRA_BILL_REQUIRED_TAGS"
+const dataFieldMissingTags = "missing-tags"
 
 type Validate struct {
-	helpFlag     *bool
-	flagSet      *flag.FlagSet
-	providerFlag *flags.StringArray
-	regionFlag   *flags.StringArray
-	typeFlag     *flags.StringArray
-	tagFlag      *flags.StringArray
-	subCommands  []cli.Command
+	helpFlag              *bool
+	flagSet               *flag.FlagSet
+	providerFlag          *flags.StringArray
+	regionFlag            *flags.StringArray
+	typeFlag              *flags.StringArray
+	tagFlag               *flags.StringArray
+	showFlag              *flags.StringArray
+	hideHeadersFlag       *bool
+	csvFlag               *bool
+	fieldSeparatorFlag    *string
+	resourceSeparatorFlag *string
+	listFieldsFlag        *bool
+	defaultFieldValueFlag *string
+	outputFormatFlag      *string
+	subCommands           []cli.Command
 }
 
 func (validate *Validate) Init(helpFlagName string, helpFlagDescription string) {
 	validate.flagSet = flag.NewFlagSet(validate.GetName(), flag.ExitOnError)
 	validate.helpFlag = validate.flagSet.Bool(helpFlagName, false, helpFlagDescription)
 	validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag = cloud.AddFilterFlags(validate.flagSet)
+	validate.outputFormatFlag = validate.flagSet.String(
+		"output-format",
+		outputFormatPlain,
+		fmt.Sprintf(
+			"How to format the full output text. Possible values are '%s' and '%s'.",
+			outputFormatPlain,
+			outputFormatMarkdown))
+	validate.showFlag,
+		validate.hideHeadersFlag,
+		validate.csvFlag,
+		validate.fieldSeparatorFlag,
+		validate.resourceSeparatorFlag,
+		validate.listFieldsFlag,
+		validate.defaultFieldValueFlag = cloud.AddResourceTableFlags(validate.flagSet)
 	validate.subCommands = []cli.Command{}
 }
 
@@ -60,28 +85,58 @@ func (validate *Validate) Process() {
 	}
 	requiredTags := strings.Split(requiredTagsString, ",")
 
-	allResources, resourcesErr := cloud.GetAllCloudResources(cloud.GetFiltersFromCommandFlags(validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag), false)
+	allResources, resourcesErr := cloud.GetAllCloudResources(cloud.GetFiltersFromCommandFlags(validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag), true)
 	if resourcesErr != nil {
 		notification.SendMessage(resourcesErr.Error())
 		cli.ExitCommandExecutionError()
 	}
 
-	fmt.Printf("Checking %d resources\n", len(allResources))
-	allGood := true
-	errMessage := ""
+	var untaggedResources []*cloud.Resource
 	for _, curResource := range allResources {
 		curTagKeys := cloud.GetTagKeys(curResource)
 		missingTags := getItemsInANotB(&requiredTags, &curTagKeys)
 		if len(missingTags) > 0 {
-			allGood = false
-			errMessage = errMessage + fmt.Sprintf("%s - %s - %s - %s missing tags %v\n", curResource.Provider, curResource.ResourceType, curResource.Location, curResource.ID, missingTags)
+			if curResource.Data == nil {
+				curResource.Data = make(map[string]string)
+			}
+
+			curResource.Data[dataFieldMissingTags] = fmt.Sprintf("%v", missingTags)
+			untaggedResources = append(untaggedResources, curResource)
 		}
 	}
 
-	if !allGood {
-		notification.SendMessage(errMessage)
-		cli.ExitCommandExecutionError()
+	if len(untaggedResources) == 0 {
+		return
 	}
+
+	rt := new(cloud.ResourceTable)
+	rt.Init(
+		validate.showFlag,
+		validate.hideHeadersFlag,
+		validate.csvFlag,
+		validate.fieldSeparatorFlag,
+		validate.resourceSeparatorFlag,
+		validate.listFieldsFlag,
+		validate.defaultFieldValueFlag)
+	table, tableErr := rt.Render(untaggedResources)
+	if tableErr != nil {
+		notification.SendMessage(tableErr.Error())
+	}
+
+	formattedOutput := ""
+	errorMessage := "Cloud resources violating billing requirements:"
+	switch *validate.outputFormatFlag {
+	case outputFormatMarkdown:
+		formattedOutput = fmt.Sprintf("%s\n```\n%s```", errorMessage, table)
+	case outputFormatPlain:
+		formattedOutput = fmt.Sprintf("%s\n%s", errorMessage, table)
+	default:
+		notification.SendMessage(fmt.Sprintf("Unrecognized output format '%s'", *validate.outputFormatFlag))
+		cli.ExitCommandInterpretationError()
+	}
+
+	notification.SendMessage(formattedOutput)
+	cli.ExitCommandExecutionError()
 }
 
 func getItemsInANotB(a *[]string, b *[]string) []string {
