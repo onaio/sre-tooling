@@ -1,6 +1,6 @@
 ## Ona SRE Tooling [![Build Status](https://github.com/onaio/sre-tooling/workflows/CI/badge.svg)](https://github.com/onaio/sre-tooling/actions?query=workflow%3ACI)
 
-A set of useful SRE tools. This project is written Golang (v1.12 and above recommended).
+A set of useful SRE tools. This project is written Golang (v1.13 and above).
 
 ![Linux Gopher](./assets/gopher.png)
 
