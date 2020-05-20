@@ -16,28 +16,46 @@ import (
 const name string = "query"
 const defaultTimeFormat string = "2006-01-02"
 const defaultExpiryTagNAValue string = "-"
+const dataFieldExpiryTime = "expiry-time"
+const outputFormatPlain = "plain"
+const outputFormatMarkdown = "markdown"
 
 type ExpiredResourceHandler func(resource *cloud.Resource, hasExpired bool, expiryTime time.Time, err error)
 
 // Query queries then notifies (using configured notification channels) infrastructure that has expired
 type Query struct {
-	helpFlag             *bool
-	flagSet              *flag.FlagSet
-	providerFlag         *flags.StringArray
-	regionFlag           *flags.StringArray
-	typeFlag             *flags.StringArray
-	tagFlag              *flags.StringArray
-	maxAgeFlag           *string
-	expiryTagFlag        *string
-	expiryTagNAValueFlag *string
-	expiryTagFormatFlag  *string
-	subCommands          []cli.Command
+	helpFlag              *bool
+	flagSet               *flag.FlagSet
+	providerFlag          *flags.StringArray
+	regionFlag            *flags.StringArray
+	typeFlag              *flags.StringArray
+	tagFlag               *flags.StringArray
+	maxAgeFlag            *string
+	expiryTagFlag         *string
+	expiryTagNAValueFlag  *string
+	expiryTagFormatFlag   *string
+	showFlag              *flags.StringArray
+	hideHeadersFlag       *bool
+	csvFlag               *bool
+	fieldSeparatorFlag    *string
+	resourceSeparatorFlag *string
+	listFieldsFlag        *bool
+	defaultFieldValueFlag *string
+	outputFormatFlag      *string
+	subCommands           []cli.Command
 }
 
 // Init initializes the command object
 func (query *Query) Init(helpFlagName string, helpFlagDescription string) {
 	query.flagSet = flag.NewFlagSet(query.GetName(), flag.ExitOnError)
 	query.helpFlag = query.flagSet.Bool(helpFlagName, false, helpFlagDescription)
+	query.outputFormatFlag = query.flagSet.String(
+		"output-format",
+		outputFormatPlain,
+		fmt.Sprintf(
+			"How to format the full output text. Possible values are '%s' and '%s'.",
+			outputFormatPlain,
+			outputFormatMarkdown))
 
 	query.providerFlag,
 		query.regionFlag,
@@ -47,6 +65,14 @@ func (query *Query) Init(helpFlagName string, helpFlagDescription string) {
 		query.expiryTagFlag,
 		query.expiryTagNAValueFlag,
 		query.expiryTagFormatFlag = AddQueryFlags(query.flagSet)
+
+	query.showFlag,
+		query.hideHeadersFlag,
+		query.csvFlag,
+		query.fieldSeparatorFlag,
+		query.resourceSeparatorFlag,
+		query.listFieldsFlag,
+		query.defaultFieldValueFlag = cloud.AddResourceTableFlags(query.flagSet)
 
 }
 
@@ -107,7 +133,7 @@ func (query *Query) GetHelpFlag() *bool {
 // and that has expired and sends notifications to the configured notification channels
 func (query *Query) Process() {
 	hasResourceErr := false
-	expiryMessage := ""
+	var expiredResources []*cloud.Resource
 	resourceErr := GetExpiredResources(
 		query.providerFlag,
 		query.regionFlag,
@@ -128,7 +154,12 @@ func (query *Query) Process() {
 				return
 			}
 
-			expiryMessage = expiryMessage + fmt.Sprintf("%s - %s - %s - %s expired on %s\n", resource.Provider, resource.ResourceType, resource.Location, resource.ID, expiryTime.Format(time.RFC1123))
+			if resource.Data == nil {
+				resource.Data = make(map[string]string)
+			}
+
+			resource.Data[dataFieldExpiryTime] = expiryTime.Format(time.RFC1123)
+			expiredResources = append(expiredResources, resource)
 		},
 	)
 
@@ -137,13 +168,42 @@ func (query *Query) Process() {
 		hasResourceErr = true
 	}
 
-	if len(expiryMessage) > 0 {
-		notification.SendMessage(expiryMessage)
-	}
-
 	if hasResourceErr {
 		cli.ExitCommandExecutionError()
 	}
+
+	if len(expiredResources) == 0 {
+		return
+	}
+
+	rt := new(cloud.ResourceTable)
+	rt.Init(
+		query.showFlag,
+		query.hideHeadersFlag,
+		query.csvFlag,
+		query.fieldSeparatorFlag,
+		query.resourceSeparatorFlag,
+		query.listFieldsFlag,
+		query.defaultFieldValueFlag)
+	table, tableErr := rt.Render(expiredResources)
+	if tableErr != nil {
+		notification.SendMessage(tableErr.Error())
+	}
+
+	formattedOutput := ""
+	errorMessage := "Some cloud resources have expired:"
+	switch *query.outputFormatFlag {
+	case outputFormatMarkdown:
+		formattedOutput = fmt.Sprintf("%s\n```\n%s```", errorMessage, table)
+	case outputFormatPlain:
+		formattedOutput = fmt.Sprintf("%s\n%s", errorMessage, table)
+	default:
+		notification.SendMessage(fmt.Sprintf("Unrecognized output format '%s'", *query.outputFormatFlag))
+		cli.ExitCommandInterpretationError()
+	}
+
+	notification.SendMessage(formattedOutput)
+	cli.ExitCommandExecutionError()
 }
 
 // GetExpiredResources returns a list of expired resources

@@ -25,6 +25,7 @@ type Resource struct {
 	LaunchTime   time.Time
 	Tags         map[string]string
 	Properties   map[string]string
+	Data         map[string]string
 }
 
 type Filter struct {
