@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -22,11 +23,12 @@ const nifiSentryDsnEnvVar string = "SRE_MONITORING_NIFI_BULLETIN_SENTRY_DSN"
 
 // Ingest does...
 type Ingest struct {
-	helpFlag    *bool
-	flagSet     *flag.FlagSet
-	subCommands []cli.Command
-	next        *int
-	limit       *int
+	helpFlag            *bool
+	persistencePathFlag *string
+	flagSet             *flag.FlagSet
+	subCommands         []cli.Command
+	nextFlag            *int
+	limitFlag           *int
 }
 
 // APIResponse does..
@@ -42,6 +44,7 @@ type BulletinBoard struct {
 
 // BulletinProcessor does...
 type BulletinProcessor struct {
+	ID       int64    `json:"id"`
 	GroupID  string   `json:"groupId"`
 	SourceID string   `json:"sourceId"`
 	CanRead  bool     `json:"canRead"`
@@ -50,7 +53,7 @@ type BulletinProcessor struct {
 
 // Bulletin does...
 type Bulletin struct {
-	ID         int    `json:"id"`
+	ID         int64  `json:"id"`
 	Category   string `json:"category"`
 	SourceName string `json:"sourceName"`
 	Level      string `json:"level"`
@@ -62,8 +65,9 @@ type Bulletin struct {
 func (ingest *Ingest) Init(helpFlagName string, helpFlagDescription string) {
 	ingest.flagSet = flag.NewFlagSet(ingest.GetName(), flag.ExitOnError)
 	ingest.helpFlag = ingest.flagSet.Bool(helpFlagName, false, helpFlagDescription)
-	ingest.next = ingest.flagSet.Int("next", 0, "includes bulletins with an id after this value")
-	ingest.limit = ingest.flagSet.Int("limit", 0, "the number of bulletins to limit the request to")
+	ingest.persistencePathFlag = ingest.flagSet.String("persistence-path", ".sre-tooling-monitoring-nifi-bulletin.last", "Where to store persistent data for this command")
+	ingest.nextFlag = ingest.flagSet.Int("next", 0, "Includes bulletins with an id after this value")
+	ingest.limitFlag = ingest.flagSet.Int("limit", 0, "The number of bulletins to limit the request to")
 }
 
 // GetName does...
@@ -114,10 +118,10 @@ func (ingest *Ingest) Process() {
 	}
 
 	q := req.URL.Query()
-	q.Add("next", strconv.Itoa(*ingest.next))
+	q.Add("next", strconv.Itoa(*ingest.nextFlag))
 
-	if *ingest.limit != 0 {
-		q.Add("limit", strconv.Itoa(*ingest.limit))
+	if *ingest.limitFlag != 0 {
+		q.Add("limit", strconv.Itoa(*ingest.limitFlag))
 	}
 
 	req.URL.RawQuery = q.Encode()
@@ -150,14 +154,25 @@ func (ingest *Ingest) Process() {
 		cli.ExitCommandExecutionError()
 	}
 
+	lastId, lastIdErr := getLastId(ingest.persistencePathFlag)
+	if lastIdErr != nil {
+		notification.SendMessage(lastIdErr.Error())
+		cli.ExitCommandExecutionError()
+	}
+
 	for _, currBulletin := range apiResponse.BulletinBoard.Bulletins {
+		if lastId >= currBulletin.ID {
+			fmt.Printf("Event in bulletin with ID '%d' already sent to Sentry. Not sending it again.\n", currBulletin.ID)
+			continue
+		}
+
 		event := sentry.NewEvent()
 		event.Message = currBulletin.Bulletin.SourceName + " [" + currBulletin.GroupID + "]"
-		event.EventID = sentry.EventID(currBulletin.Bulletin.ID)
+		event.EventID = sentry.EventID(currBulletin.ID)
 		event.Exception = buildSentryException(currBulletin.Bulletin.SourceName+" ["+currBulletin.GroupID+"]", currBulletin.Bulletin.Message)
 		event.Level = sentry.Level(strings.ToLower(currBulletin.Bulletin.Level))
 		event.Tags["category"] = currBulletin.Bulletin.Category
-		event.Tags["ID"] = string(currBulletin.Bulletin.ID)
+		event.Tags["ID"] = fmt.Sprintf("%d", currBulletin.ID)
 		event.Tags["sourceID"] = currBulletin.SourceID
 		event.Tags["groupID"] = currBulletin.GroupID
 		event.Tags["sourceName"] = currBulletin.Bulletin.SourceName
@@ -166,8 +181,18 @@ func (ingest *Ingest) Process() {
 		event.Tags["runtime.name"] = "NiFi"
 		event.Fingerprint = []string{currBulletin.GroupID, currBulletin.SourceID}
 		sentry.CaptureEvent(event)
+		lastId = currBulletin.ID
 	}
 	sentry.Flush(time.Second * 30)
+
+	// Save lastId to file after loop is done. Benefit of checkpointing within
+	// the loop (and potentially have a super accurate lastId--in case the command
+	// errors) not considered more beneficial than less frequent I/O operations.
+	saveErr := saveLastId(ingest.persistencePathFlag, lastId)
+	if saveErr != nil {
+		notification.SendMessage(saveErr.Error())
+		cli.ExitCommandExecutionError()
+	}
 }
 
 func buildSentryException(messageType string, message string) []sentry.Exception {
@@ -176,4 +201,37 @@ func buildSentryException(messageType string, message string) []sentry.Exception
 		Type:       messageType,
 		Stacktrace: sentry.ExtractStacktrace(fmt.Errorf(message)),
 	}}
+}
+
+func saveLastId(path *string, lastId int64) error {
+	return ioutil.WriteFile(*path, []byte(fmt.Sprintf("%d", lastId)), 0600)
+}
+
+func getLastId(path *string) (int64, error) {
+	// Check if file exists. If it doesn't return 0, nil
+	if _, statErr := os.Stat(*path); os.IsNotExist(statErr) {
+		return 0, nil
+	}
+
+	file, fileErr := os.Open(*path)
+	if fileErr != nil {
+		return 0, fileErr
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	// We expect the last ID to be the first line in the file
+	scanner.Scan()
+	lastIdString := scanner.Text()
+	if scannerErr := scanner.Err(); scannerErr != nil {
+		return 0, scannerErr
+	}
+
+	lastId, lastIdErr := parseNiFiIdString(lastIdString)
+
+	return lastId, lastIdErr
+}
+
+func parseNiFiIdString(idString string) (int64, error) {
+	return strconv.ParseInt(idString, 10, 64)
 }
