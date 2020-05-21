@@ -17,7 +17,8 @@ import (
 )
 
 const name string = "ingest"
-const nifiBulletinBoardAPIURLEnvVar string = "SRE_MONITORING_NIFI_BULLETINGBOARD_API_URL"
+const nifiBulletinBoardAPIURLEnvVar string = "SRE_MONITORING_NIFI_BULLETIN_API_URL"
+const nifiSentryDsnEnvVar string = "SRE_MONITORING_NIFI_BULLETIN_SENTRY_DSN"
 
 // Ingest does...
 type Ingest struct {
@@ -92,8 +93,11 @@ func (ingest *Ingest) GetHelpFlag() *bool {
 
 // Process does...
 func (ingest *Ingest) Process() {
+	apiURL := os.Getenv(nifiBulletinBoardAPIURLEnvVar)
+	sentryDSN := os.Getenv(nifiSentryDsnEnvVar)
+
 	err := sentry.Init(sentry.ClientOptions{
-		Dsn: "dsn",
+		Dsn: sentryDSN,
 	})
 
 	if err != nil {
@@ -101,7 +105,6 @@ func (ingest *Ingest) Process() {
 	}
 
 	client := &http.Client{}
-	apiURL := os.Getenv(nifiBulletinBoardAPIURLEnvVar)
 	req, requestErr := http.NewRequest("GET", apiURL, nil)
 	req.Header.Add("Accept", "application/json")
 
@@ -149,8 +152,9 @@ func (ingest *Ingest) Process() {
 
 	for _, currBulletin := range apiResponse.BulletinBoard.Bulletins {
 		event := sentry.NewEvent()
-		event.Message = currBulletin.Bulletin.Message
+		event.Message = currBulletin.Bulletin.SourceName + " [" + currBulletin.GroupID + "]"
 		event.EventID = sentry.EventID(currBulletin.Bulletin.ID)
+		event.Exception = buildSentryException(currBulletin.Bulletin.SourceName+" ["+currBulletin.GroupID+"]", currBulletin.Bulletin.Message)
 		event.Level = sentry.Level(strings.ToLower(currBulletin.Bulletin.Level))
 		event.Tags["category"] = currBulletin.Bulletin.Category
 		event.Tags["ID"] = string(currBulletin.Bulletin.ID)
@@ -158,10 +162,18 @@ func (ingest *Ingest) Process() {
 		event.Tags["groupID"] = currBulletin.GroupID
 		event.Tags["sourceName"] = currBulletin.Bulletin.SourceName
 		event.Tags["timestamp"] = currBulletin.Bulletin.Timestamp
-		event.Tags["runtime"] = "NiFi-1.8.0"
+		event.Tags["runtime"] = "NiFi-1.8.0" // TODO: Get version of NiFi
 		event.Tags["runtime.name"] = "NiFi"
-		event.Fingerprint = []string{currBulletin.GroupID}
+		event.Fingerprint = []string{currBulletin.GroupID, currBulletin.SourceID}
 		sentry.CaptureEvent(event)
 	}
 	sentry.Flush(time.Second * 30)
+}
+
+func buildSentryException(messageType string, message string) []sentry.Exception {
+	return []sentry.Exception{sentry.Exception{
+		Value:      message,
+		Type:       messageType,
+		Stacktrace: sentry.ExtractStacktrace(fmt.Errorf(message)),
+	}}
 }
