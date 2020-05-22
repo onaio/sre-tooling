@@ -21,6 +21,12 @@ const name string = "ingest"
 const nifiBulletinBoardAPIURLEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_API_URL"
 const nifiSentryDsnEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_SENTRY_DSN"
 
+// The format for the date portion to be added to the timestamp
+// The timestamp string from the bulletin board doesn't come with a date portion
+// This constant dictates how the date should be formatted before prepending it to the time
+const nifiMissingDateFormat string = "Mon, 02 Jan 2006"
+const nifiFormattedTimestampFormat string = time.RFC1123 // Matches Mon, 02 Jan 2006 15:04:05 MST
+
 // Ingest does...
 type Ingest struct {
 	helpFlag            *bool
@@ -171,12 +177,22 @@ func (ingest *Ingest) Process() {
 		event.EventID = sentry.EventID(currBulletin.ID)
 		event.Exception = buildSentryException(currBulletin.Bulletin.SourceName+" ["+currBulletin.GroupID+"]", currBulletin.Bulletin.Message)
 		event.Level = sentry.Level(strings.ToLower(currBulletin.Bulletin.Level))
+
+		timestampString := currBulletin.Bulletin.Timestamp
+		timestamp, timestampErr := parseNiFiTimestampString(timestampString)
+		if timestampErr != nil {
+			notification.SendMessage(timestampErr.Error())
+		} else {
+			timestampString = timestamp.Format(nifiFormattedTimestampFormat)
+			event.Timestamp = timestamp.Unix()
+		}
+
 		event.Tags["category"] = currBulletin.Bulletin.Category
-		event.Tags["ID"] = fmt.Sprintf("%d", currBulletin.ID)
-		event.Tags["sourceID"] = currBulletin.SourceID
-		event.Tags["groupID"] = currBulletin.GroupID
-		event.Tags["sourceName"] = currBulletin.Bulletin.SourceName
-		event.Tags["timestamp"] = currBulletin.Bulletin.Timestamp
+		event.Tags["id"] = fmt.Sprintf("%d", currBulletin.ID)
+		event.Tags["source_id"] = currBulletin.SourceID
+		event.Tags["group_id"] = currBulletin.GroupID
+		event.Tags["source_name"] = currBulletin.Bulletin.SourceName
+		event.Tags["timestamp_string"] = timestampString
 		event.Tags["runtime"] = "NiFi-1.8.0" // TODO: Get version of NiFi
 		event.Tags["runtime.name"] = "NiFi"
 		event.Fingerprint = []string{currBulletin.GroupID, currBulletin.SourceID}
@@ -234,4 +250,15 @@ func getLastId(path *string) (int64, error) {
 
 func parseNiFiIdString(idString string) (int64, error) {
 	return strconv.ParseInt(idString, 10, 64)
+}
+
+func parseNiFiTimestampString(timestamp string) (time.Time, error) {
+	if len(timestamp) == 0 {
+		return time.Now(), fmt.Errorf("The provided unformatted timestamp is blank")
+	}
+
+	dateString := time.Now().Format(nifiMissingDateFormat)
+	timestamp = dateString + " " + timestamp
+
+	return time.Parse(nifiFormattedTimestampFormat, timestamp)
 }
