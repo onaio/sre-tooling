@@ -1,4 +1,4 @@
 sre-tooling
 aws-lambda
 .vscode
-.sre-tooling-monitoring-nifi-bulletin.last
+*.last

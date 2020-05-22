@@ -2,6 +2,8 @@ package ingest
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -21,6 +23,7 @@ import (
 const name string = "ingest"
 const nifiBulletinBoardAPIURLEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_URL"
 const nifiSentryDsnEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_SENTRY_DSN"
+const lastIdExtension string = ".last"
 
 // The format for the date portion to be added to the timestamp
 // The timestamp string from the bulletin board doesn't come with a date portion
@@ -30,12 +33,12 @@ const nifiFormattedTimestampFormat string = time.RFC1123 // Matches Mon, 02 Jan 
 
 // Ingest does...
 type Ingest struct {
-	helpFlag            *bool
-	persistencePathFlag *string
-	flagSet             *flag.FlagSet
-	subCommands         []cli.Command
-	nextFlag            *int
-	limitFlag           *int
+	helpFlag           *bool
+	persistenceDirFlag *string
+	flagSet            *flag.FlagSet
+	subCommands        []cli.Command
+	nextFlag           *int
+	limitFlag          *int
 }
 
 // APIResponse does..
@@ -72,7 +75,7 @@ type Bulletin struct {
 func (ingest *Ingest) Init(helpFlagName string, helpFlagDescription string) {
 	ingest.flagSet = flag.NewFlagSet(ingest.GetName(), flag.ExitOnError)
 	ingest.helpFlag = ingest.flagSet.Bool(helpFlagName, false, helpFlagDescription)
-	ingest.persistencePathFlag = ingest.flagSet.String("persistence-path", ".sre-tooling-monitoring-nifi-bulletin.last", "Where to store persistent data for this command")
+	ingest.persistenceDirFlag = ingest.flagSet.String("persistence-dir", ".", "The directory to store persistent data for this command")
 	ingest.nextFlag = ingest.flagSet.Int("next", 0, "Includes bulletins with an id after this value")
 	ingest.limitFlag = ingest.flagSet.Int("limit", 0, "The number of bulletins to limit the request to")
 }
@@ -184,7 +187,7 @@ func (ingest *Ingest) Process() {
 		cli.ExitCommandExecutionError()
 	}
 
-	lastId, lastIdErr := getLastId(ingest.persistencePathFlag)
+	lastId, lastIdErr := getLastId(ingest.persistenceDirFlag, &apiURL, &sentryDSN)
 	if lastIdErr != nil {
 		notification.SendMessage(lastIdErr.Error())
 		cli.ExitCommandExecutionError()
@@ -198,7 +201,6 @@ func (ingest *Ingest) Process() {
 
 		event := sentry.NewEvent()
 		event.Message = currBulletin.Bulletin.SourceName + " [" + currBulletin.GroupID + "]"
-		event.EventID = sentry.EventID(currBulletin.ID)
 		event.Exception = buildSentryException(currBulletin.Bulletin.SourceName+" ["+currBulletin.GroupID+"]", currBulletin.Bulletin.Message)
 		event.Level = sentry.Level(strings.ToLower(currBulletin.Bulletin.Level))
 
@@ -226,7 +228,7 @@ func (ingest *Ingest) Process() {
 	// Save lastId to file after loop is done. Benefit of checkpointing within
 	// the loop (and potentially have a super accurate lastId--in case the command
 	// errors) not considered more beneficial than less frequent I/O operations.
-	saveErr := saveLastId(ingest.persistencePathFlag, lastId)
+	saveErr := saveLastId(ingest.persistenceDirFlag, &apiURL, &sentryDSN, lastId)
 	if saveErr != nil {
 		notification.SendMessage(saveErr.Error())
 		cli.ExitCommandExecutionError()
@@ -241,17 +243,39 @@ func buildSentryException(messageType string, message string) []sentry.Exception
 	}}
 }
 
-func saveLastId(path *string, lastId int64) error {
-	return ioutil.WriteFile(*path, []byte(fmt.Sprintf("%d", lastId)), 0600)
+func getLastIdStoragePath(storageDir *string, flowBulletinURL *string, sentryDSN *string) (string, error) {
+	if len(*storageDir) == 0 || len(*flowBulletinURL) == 0 || len(*sentryDSN) == 0 {
+		return "", fmt.Errorf("Make sure the storage directory, flow bulletin URL and Sentry DSN are not blank")
+	}
+
+	hasher := sha256.New()
+	hasher.Write([]byte(*flowBulletinURL + *sentryDSN))
+	sha := hex.EncodeToString(hasher.Sum(nil))
+
+	return *storageDir + string(os.PathSeparator) + sha + lastIdExtension, nil
 }
 
-func getLastId(path *string) (int64, error) {
+func saveLastId(storageDir *string, flowBulletinURL *string, sentryDSN *string, lastId int64) error {
+	path, pathErr := getLastIdStoragePath(storageDir, flowBulletinURL, sentryDSN)
+	if pathErr != nil {
+		return pathErr
+	}
+
+	return ioutil.WriteFile(path, []byte(fmt.Sprintf("%d", lastId)), 0600)
+}
+
+func getLastId(storageDir *string, flowBulletinURL *string, sentryDSN *string) (int64, error) {
+	path, pathErr := getLastIdStoragePath(storageDir, flowBulletinURL, sentryDSN)
+	if pathErr != nil {
+		return 0, pathErr
+	}
+
 	// Check if file exists. If it doesn't return 0, nil
-	if _, statErr := os.Stat(*path); os.IsNotExist(statErr) {
+	if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
 		return 0, nil
 	}
 
-	file, fileErr := os.Open(*path)
+	file, fileErr := os.Open(path)
 	if fileErr != nil {
 		return 0, fileErr
 	}
