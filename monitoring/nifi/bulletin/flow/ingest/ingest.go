@@ -18,8 +18,8 @@ import (
 )
 
 const name string = "ingest"
-const nifiBulletinBoardAPIURLEnvVar string = "SRE_MONITORING_NIFI_BULLETIN_API_URL"
-const nifiSentryDsnEnvVar string = "SRE_MONITORING_NIFI_BULLETIN_SENTRY_DSN"
+const nifiBulletinBoardAPIURLEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_API_URL"
+const nifiSentryDsnEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_SENTRY_DSN"
 
 // Ingest does...
 type Ingest struct {
@@ -77,7 +77,7 @@ func (ingest *Ingest) GetName() string {
 
 // GetDescription does...
 func (ingest *Ingest) GetDescription() string {
-	return "Ingests NiFi bulletins and sends to the configured notification channel(s)"
+	return "Ingests the NiFi flow bulletins and sends the data to the configured Sentry DSN"
 }
 
 // GetFlagSet does..

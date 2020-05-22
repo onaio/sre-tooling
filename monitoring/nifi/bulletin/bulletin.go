@@ -4,7 +4,7 @@ import (
 	"flag"
 
 	"github.com/onaio/sre-tooling/libs/cli"
-	"github.com/onaio/sre-tooling/monitoring/nifi/bulletin/ingest"
+	"github.com/onaio/sre-tooling/monitoring/nifi/bulletin/flow"
 )
 
 const name string = "bulletin"
@@ -20,9 +20,9 @@ type Bulletin struct {
 func (bulletin *Bulletin) Init(helpFlagName string, helpFlagDescription string) {
 	bulletin.flagSet = flag.NewFlagSet(bulletin.GetName(), flag.ExitOnError)
 	bulletin.helpFlag = bulletin.flagSet.Bool(helpFlagName, false, helpFlagDescription)
-	ingest := new(ingest.Ingest)
-	ingest.Init(helpFlagName, helpFlagDescription)
-	bulletin.subCommands = []cli.Command{ingest}
+	flow := new(flow.Flow)
+	flow.Init(helpFlagName, helpFlagDescription)
+	bulletin.subCommands = []cli.Command{flow}
 }
 
 // GetName does...
