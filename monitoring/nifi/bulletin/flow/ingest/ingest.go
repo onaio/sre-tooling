@@ -14,11 +14,12 @@ import (
 
 	"github.com/getsentry/sentry-go"
 	"github.com/onaio/sre-tooling/libs/cli"
+	"github.com/onaio/sre-tooling/libs/nifi"
 	"github.com/onaio/sre-tooling/libs/notification"
 )
 
 const name string = "ingest"
-const nifiBulletinBoardAPIURLEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_API_URL"
+const nifiBulletinBoardAPIURLEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_URL"
 const nifiSentryDsnEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_SENTRY_DSN"
 
 // The format for the date portion to be added to the timestamp
@@ -103,15 +104,38 @@ func (ingest *Ingest) GetHelpFlag() *bool {
 
 // Process does...
 func (ingest *Ingest) Process() {
+	release := "n/a"
+	sysDiagnosticsResp, sysDiagnosticsErr := nifi.GetSystemDiagnostics()
+	if sysDiagnosticsErr != nil {
+		notification.SendMessage(sysDiagnosticsErr.Error())
+	} else {
+		release = sysDiagnosticsResp.SystemDiagnostics.AggregateSnapshot.VersionInfo.NiFiVersion
+	}
+
 	apiURL := os.Getenv(nifiBulletinBoardAPIURLEnvVar)
 	sentryDSN := os.Getenv(nifiSentryDsnEnvVar)
 
 	err := sentry.Init(sentry.ClientOptions{
-		Dsn: sentryDSN,
+		Dsn:     sentryDSN,
+		Release: release,
+		Dist:    "NiFi",
 	})
 
 	if err != nil {
 		fmt.Printf("Sentry initialization failed: %v\n", err)
+	}
+
+	if sysDiagnosticsErr == nil {
+		sentry.ConfigureScope(func(scope *sentry.Scope) {
+			scope.SetTag("os_name", sysDiagnosticsResp.SystemDiagnostics.AggregateSnapshot.VersionInfo.OSName)
+			scope.SetTag("os_version", sysDiagnosticsResp.SystemDiagnostics.AggregateSnapshot.VersionInfo.OSVersion)
+			scope.SetTag("os_architecture", sysDiagnosticsResp.SystemDiagnostics.AggregateSnapshot.VersionInfo.OSArchitecture)
+			scope.SetTag("java_version", sysDiagnosticsResp.SystemDiagnostics.AggregateSnapshot.VersionInfo.JavaVersion)
+			scope.SetTag("java_vendor", sysDiagnosticsResp.SystemDiagnostics.AggregateSnapshot.VersionInfo.JavaVendor)
+			scope.SetTag("build_branch", sysDiagnosticsResp.SystemDiagnostics.AggregateSnapshot.VersionInfo.BuildBranch)
+			scope.SetTag("build_revision", sysDiagnosticsResp.SystemDiagnostics.AggregateSnapshot.VersionInfo.BuildRevision)
+			scope.SetTag("build_tag", sysDiagnosticsResp.SystemDiagnostics.AggregateSnapshot.VersionInfo.BuildTag)
+		})
 	}
 
 	client := &http.Client{}
@@ -193,8 +217,6 @@ func (ingest *Ingest) Process() {
 		event.Tags["group_id"] = currBulletin.GroupID
 		event.Tags["source_name"] = currBulletin.Bulletin.SourceName
 		event.Tags["timestamp_string"] = timestampString
-		event.Tags["runtime"] = "NiFi-1.8.0" // TODO: Get version of NiFi
-		event.Tags["runtime.name"] = "NiFi"
 		event.Fingerprint = []string{currBulletin.GroupID, currBulletin.SourceID}
 		sentry.CaptureEvent(event)
 		lastId = currBulletin.ID
