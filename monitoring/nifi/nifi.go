@@ -9,14 +9,14 @@ import (
 
 const name string = "nifi"
 
-// NiFi does...
+// NiFi holds data for the NiFi monitoring sub-command
 type NiFi struct {
 	helpFlag    *bool
 	flagSet     *flag.FlagSet
 	subCommands []cli.Command
 }
 
-// Init does...
+// Init initializes the nifi struct curresponding to the bulletin sub-command
 func (nifi *NiFi) Init(helpFlagName string, helpFlagDescription string) {
 	nifi.flagSet = flag.NewFlagSet(nifi.GetName(), flag.ExitOnError)
 	nifi.helpFlag = nifi.flagSet.Bool(helpFlagName, false, helpFlagDescription)
@@ -25,30 +25,32 @@ func (nifi *NiFi) Init(helpFlagName string, helpFlagDescription string) {
 	nifi.subCommands = []cli.Command{bulletin}
 }
 
-// GetName does...
+// GetName returns the name of the nifi sub-command
 func (nifi *NiFi) GetName() string {
 	return name
 }
 
-// GetDescription does...
+// GetDescription returns the description for the nifi sub-command
 func (nifi *NiFi) GetDescription() string {
 	return "NiFi specific commands"
 }
 
-// GetFlagSet does..
+// GetFlagSet returns a flag.FlagSet corresponding to the nifi sub-command
 func (nifi *NiFi) GetFlagSet() *flag.FlagSet {
 	return nifi.flagSet
 }
 
-// GetSubCommands does..
+// GetSubCommands returns a list of sub-commands under the nifi sub-command
 func (nifi *NiFi) GetSubCommands() []cli.Command {
 	return nifi.subCommands
 }
 
-// GetHelpFlag does..
+// GetHelpFlag returns the value for the help flag in the bulletin sub-command.
+// TRUE means the user provided the flag and wants to print the sub-command's
+// help message
 func (nifi *NiFi) GetHelpFlag() *bool {
 	return nifi.helpFlag
 }
 
-// Process does...
+// Process is expected to be empty since this sub-command doesn't do any processing
 func (nifi *NiFi) Process() {}

@@ -10,22 +10,27 @@ import (
 
 const nifiSystemDiagnosticsURLEnvVar string = "SRE_NIFI_SYSTEM_DIAGNOSTICS_URL"
 
-// SystemDiagnostics does..
+// SystemDiagnosticsResp is the root JSON object from the NiFi diagnostics endpoint
+// response
 type SystemDiagnosticsResp struct {
 	SystemDiagnostics SystemDiagnostics `json:"systemDiagnostics"`
 }
 
-// SystemDiagnostics does..
+// SystemDiagnostics is part of the response from the NiFi diagnostics endpoint response
+// and is a child element of SystemDiagnosticsResp
 type SystemDiagnostics struct {
 	AggregateSnapshot AggregateSnapshot `json:"aggregateSnapshot"`
 }
 
-// AggregateSnapshot does...
+// AggregateSnapshot is part of the response from the NiFi diagnostics endpoint response
+// and contains the version information for NiFi. The JSON response object corresponding
+// to this object contains other elements apart from VersionInfo
 type AggregateSnapshot struct {
 	VersionInfo VersionInfo `json:"versionInfo`
 }
 
-// VersionInfo does...
+// VersionInfo is part of the response from the NiFi diagnostics endpoint response
+// and contains version informantion for the NiFi instance
 type VersionInfo struct {
 	NiFiVersion    string `json:"niFiVersion"`
 	JavaVendor     string `json:"javaVendor"`
@@ -39,6 +44,9 @@ type VersionInfo struct {
 	BuildTimestamp string `json:"buildTimestamp"`
 }
 
+// GetSystemDiagnostics returns system diagnostics information from NiFi.
+// It's expected that the environment value whose name is in
+// the nifiSystemDiagnosticsURLEnvVar variable
 func GetSystemDiagnostics() (SystemDiagnosticsResp, error) {
 	var systemDiagnosticsResp SystemDiagnosticsResp
 

@@ -31,7 +31,7 @@ const lastIDExtension string = ".last"
 const nifiMissingDateFormat string = "Mon, 02 Jan 2006"
 const nifiFormattedTimestampFormat string = time.RFC1123 // Matches Mon, 02 Jan 2006 15:04:05 MST
 
-// Ingest does...
+// Ingest holds data for the NiFi flow ingest sub-command
 type Ingest struct {
 	helpFlag           *bool
 	persistenceDirFlag *string
@@ -41,18 +41,20 @@ type Ingest struct {
 	limitFlag          *int
 }
 
-// APIResponse does..
+// APIResponse is the root JSON object in the bulletin board response from NiFi
 type APIResponse struct {
 	BulletinBoard BulletinBoard `json:"bulletinBoard"`
 }
 
-// BulletinBoard does..
+// BulletinBoard is part of the JSON gotten from the bulletin board respones from
+// NiFi and contains a list of bulletins and a time for when the list was generated
 type BulletinBoard struct {
 	Bulletins []BulletinProcessor `json:"bulletins"`
 	Generated string              `json:"generated"`
 }
 
-// BulletinProcessor does...
+// BulletinProcessor is part of the JSON gotten from the bulletin board respones from
+// NiFi and is considered the root object for a single bulletin
 type BulletinProcessor struct {
 	ID       int64    `json:"id"`
 	GroupID  string   `json:"groupId"`
@@ -61,7 +63,9 @@ type BulletinProcessor struct {
 	Bulletin Bulletin `json:"bulletin"`
 }
 
-// Bulletin does...
+// Bulletin does is part of the JSON gotten from the bulletin board respones from
+// NiFi and is considered the "inner" object for a single bulletin. It contains extra
+// info not contained in the bulletin's root object
 type Bulletin struct {
 	ID         int64  `json:"id"`
 	Category   string `json:"category"`
@@ -71,7 +75,7 @@ type Bulletin struct {
 	Timestamp  string `json:"timestamp"`
 }
 
-// Init does...
+// Init initializes items in an Ingest struct
 func (ingest *Ingest) Init(helpFlagName string, helpFlagDescription string) {
 	ingest.flagSet = flag.NewFlagSet(ingest.GetName(), flag.ExitOnError)
 	ingest.helpFlag = ingest.flagSet.Bool(helpFlagName, false, helpFlagDescription)
@@ -80,32 +84,34 @@ func (ingest *Ingest) Init(helpFlagName string, helpFlagDescription string) {
 	ingest.limitFlag = ingest.flagSet.Int("limit", 0, "The number of bulletins to limit the request to")
 }
 
-// GetName does...
+// GetName returns the name associated with this sub-command
 func (ingest *Ingest) GetName() string {
 	return name
 }
 
-// GetDescription does...
+// GetDescription returns the description for the ingest sub-command
 func (ingest *Ingest) GetDescription() string {
 	return "Ingests the NiFi flow bulletins and sends the data to the configured Sentry DSN"
 }
 
-// GetFlagSet does..
+// GetFlagSet returns the flag.FlagSet associated with the ingest sub-command
 func (ingest *Ingest) GetFlagSet() *flag.FlagSet {
 	return ingest.flagSet
 }
 
-// GetSubCommands does..
+// GetSubCommands returns a list of sub-commands under the ingest sub-command
 func (ingest *Ingest) GetSubCommands() []cli.Command {
 	return ingest.subCommands
 }
 
-// GetHelpFlag does..
+// GetHelpFlag returns the value for the help flag in the ingest sub-command.
+// TRUE means the user provided the flag and wants to print the sub-command's
+// help message
 func (ingest *Ingest) GetHelpFlag() *bool {
 	return ingest.helpFlag
 }
 
-// Process does...
+// Process initializes ingesting bulletins from the flow bulletin board endpoint
 func (ingest *Ingest) Process() {
 	release := "n/a"
 	sysDiagnosticsResp, sysDiagnosticsErr := nifi.GetSystemDiagnostics()
@@ -222,6 +228,8 @@ func (ingest *Ingest) Process() {
 	}
 }
 
+// constructSentryEvent takes in a BulletinProcessor struct and constructs a Sentry
+// Event struct
 func constructSentryEvent(curBulletin BulletinProcessor) (*sentry.Event, bool, error) {
 	event := sentry.NewEvent()
 	var err error
@@ -251,6 +259,9 @@ func constructSentryEvent(curBulletin BulletinProcessor) (*sentry.Event, bool, e
 	return event, validEvent, err
 }
 
+// buildSentryException generates a slice of Sentry exceptions from what is assumed to be
+// a bulletinProcessor message. Set messageType to whatever you want the title for the Sentry
+// issue to be
 func buildSentryException(messageType string, message string) []sentry.Exception {
 	return []sentry.Exception{sentry.Exception{
 		Value:      message,
@@ -259,6 +270,8 @@ func buildSentryException(messageType string, message string) []sentry.Exception
 	}}
 }
 
+// getLastIDStoragePath returns the path to the file that should contain the ID for the last processed
+// bulletin
 func getLastIDStoragePath(storageDir *string, flowBulletinURL *string, sentryDSN *string) (string, error) {
 	if len(*storageDir) == 0 || len(*flowBulletinURL) == 0 || len(*sentryDSN) == 0 {
 		return "", fmt.Errorf("Make sure the storage directory, flow bulletin URL and Sentry DSN are not blank")
@@ -271,6 +284,8 @@ func getLastIDStoragePath(storageDir *string, flowBulletinURL *string, sentryDSN
 	return *storageDir + string(os.PathSeparator) + sha + lastIDExtension, nil
 }
 
+// saveLastID saves the provided lastID into a file (path determined by the storageDir, flowBulletinURL,
+// and sentryDSN). All contents of the file will be replaced with the last ID
 func saveLastID(storageDir *string, flowBulletinURL *string, sentryDSN *string, lastID int64) error {
 	path, pathErr := getLastIDStoragePath(storageDir, flowBulletinURL, sentryDSN)
 	if pathErr != nil {
@@ -280,6 +295,8 @@ func saveLastID(storageDir *string, flowBulletinURL *string, sentryDSN *string, 
 	return ioutil.WriteFile(path, []byte(fmt.Sprintf("%d", lastID)), 0600)
 }
 
+// getLastID returns the ID stored in the file whose path is determined by the storageDir, flowBulletinURL,
+// and sentryDSN
 func getLastID(storageDir *string, flowBulletinURL *string, sentryDSN *string) (int64, error) {
 	path, pathErr := getLastIDStoragePath(storageDir, flowBulletinURL, sentryDSN)
 	if pathErr != nil {
@@ -310,10 +327,14 @@ func getLastID(storageDir *string, flowBulletinURL *string, sentryDSN *string) (
 	return lastID, lastIDErr
 }
 
+// parseNiFiIDString returns a number representation of the NIFi bulletin ID
 func parseNiFiIDString(idString string) (int64, error) {
 	return strconv.ParseInt(idString, 10, 64)
 }
 
+// parseNiFiTimestampString parses the timestamp string from NiFi and returns a
+// time.Time struct. The assumption is the timestamp string from NiFi contains
+// time but no date
 func parseNiFiTimestampString(timestamp string) (time.Time, error) {
 	if len(timestamp) == 0 {
 		return time.Now(), fmt.Errorf("The provided unformatted timestamp is blank")

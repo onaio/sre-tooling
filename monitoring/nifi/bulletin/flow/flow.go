@@ -9,14 +9,14 @@ import (
 
 const name string = "flow"
 
-// Flow does...
+// Flow holds data for the NiFi flow sub-command
 type Flow struct {
 	helpFlag    *bool
 	flagSet     *flag.FlagSet
 	subCommands []cli.Command
 }
 
-// Init does...
+// Init initializes the flow struct curresponding to the flow sub-command
 func (flow *Flow) Init(helpFlagName string, helpFlagDescription string) {
 	flow.flagSet = flag.NewFlagSet(flow.GetName(), flag.ExitOnError)
 	flow.helpFlag = flow.flagSet.Bool(helpFlagName, false, helpFlagDescription)
@@ -25,30 +25,32 @@ func (flow *Flow) Init(helpFlagName string, helpFlagDescription string) {
 	flow.subCommands = []cli.Command{ingest}
 }
 
-// GetName does...
+// GetName returns the name of the flow sub-command
 func (flow *Flow) GetName() string {
 	return name
 }
 
-// GetDescription does...
+// GetDescription returns the description for the flow sub-command
 func (flow *Flow) GetDescription() string {
 	return "NiFi flow bulletin specific commands"
 }
 
-// GetFlagSet does..
+// GetFlagSet returns a flag.FlagSet corresponding to the flow sub-command
 func (flow *Flow) GetFlagSet() *flag.FlagSet {
 	return flow.flagSet
 }
 
-// GetSubCommands does..
+// GetSubCommands returns a list of sub-commands under the flow sub-command
 func (flow *Flow) GetSubCommands() []cli.Command {
 	return flow.subCommands
 }
 
-// GetHelpFlag does..
+// GetHelpFlag returns the value for the help flag in the flow sub-command.
+// TRUE means the user provided the flag and wants to print the sub-command's
+// help message
 func (flow *Flow) GetHelpFlag() *bool {
 	return flow.helpFlag
 }
 
-// Process does...
+// Process is expected to be empty since this sub-command doesn't do any processing
 func (flow *Flow) Process() {}

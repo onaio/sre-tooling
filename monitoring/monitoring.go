@@ -9,14 +9,14 @@ import (
 
 const name string = "monitoring"
 
-// Monitoring does...
+// Monitoring holds data for the NiFi monitoring sub-command
 type Monitoring struct {
 	helpFlag    *bool
 	flagSet     *flag.FlagSet
 	subCommands []cli.Command
 }
 
-// Init does...
+// Init initializes the monitoring struct curresponding to the monitoring sub-command
 func (monitoring *Monitoring) Init(helpFlagName string, helpFlagDescription string) {
 	monitoring.flagSet = flag.NewFlagSet(monitoring.GetName(), flag.ExitOnError)
 	monitoring.helpFlag = monitoring.flagSet.Bool(helpFlagName, false, helpFlagDescription)
@@ -25,30 +25,32 @@ func (monitoring *Monitoring) Init(helpFlagName string, helpFlagDescription stri
 	monitoring.subCommands = []cli.Command{nifi}
 }
 
-// GetName does...
+// GetName returns the name of the monitoring sub-command
 func (monitoring *Monitoring) GetName() string {
 	return name
 }
 
-// GetDescription does...
+// GetDescription returns the description for the monitoring sub-command
 func (monitoring *Monitoring) GetDescription() string {
 	return "Monitoring specific commands"
 }
 
-// GetFlagSet does..
+// GetFlagSet returns a flag.FlagSet corresponding to the monitoring sub-command
 func (monitoring *Monitoring) GetFlagSet() *flag.FlagSet {
 	return monitoring.flagSet
 }
 
-// GetSubCommands does..
+// GetSubCommands returns a list of sub-commands under the monitoring sub-command
 func (monitoring *Monitoring) GetSubCommands() []cli.Command {
 	return monitoring.subCommands
 }
 
-// GetHelpFlag does..
+// GetHelpFlag returns the value for the help flag in the monitoring sub-command.
+// TRUE means the user provided the flag and wants to print the sub-command's
+// help message
 func (monitoring *Monitoring) GetHelpFlag() *bool {
 	return monitoring.helpFlag
 }
 
-// Process does...
+// Process is expected to be empty since this sub-command doesn't do any processing
 func (monitoring *Monitoring) Process() {}
