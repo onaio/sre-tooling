@@ -23,7 +23,7 @@ import (
 const name string = "ingest"
 const nifiBulletinBoardAPIURLEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_URL"
 const nifiSentryDsnEnvVar string = "SRE_MONITORING_NIFI_FLOW_BULLETIN_SENTRY_DSN"
-const lastIdExtension string = ".last"
+const lastIDExtension string = ".last"
 
 // The format for the date portion to be added to the timestamp
 // The timestamp string from the bulletin board doesn't come with a date portion
@@ -187,52 +187,68 @@ func (ingest *Ingest) Process() {
 		cli.ExitCommandExecutionError()
 	}
 
-	lastId, lastIdErr := getLastId(ingest.persistenceDirFlag, &apiURL, &sentryDSN)
-	if lastIdErr != nil {
-		notification.SendMessage(lastIdErr.Error())
+	lastID, lastIDErr := getLastID(ingest.persistenceDirFlag, &apiURL, &sentryDSN)
+	if lastIDErr != nil {
+		notification.SendMessage(lastIDErr.Error())
 		cli.ExitCommandExecutionError()
 	}
 
-	for _, currBulletin := range apiResponse.BulletinBoard.Bulletins {
-		if lastId >= currBulletin.ID {
-			fmt.Printf("Event in bulletin with ID '%d' already sent to Sentry. Not sending it again.\n", currBulletin.ID)
+	for _, curBulletin := range apiResponse.BulletinBoard.Bulletins {
+		if lastID >= curBulletin.ID {
+			notification.SendMessage(fmt.Sprintf("Event in bulletin with ID '%d' already sent to Sentry. Not sending it again.\n", curBulletin.ID))
 			continue
 		}
 
-		event := sentry.NewEvent()
-		event.Message = currBulletin.Bulletin.SourceName + " [" + currBulletin.GroupID + "]"
-		event.Exception = buildSentryException(currBulletin.Bulletin.SourceName+" ["+currBulletin.GroupID+"]", currBulletin.Bulletin.Message)
-		event.Level = sentry.Level(strings.ToLower(currBulletin.Bulletin.Level))
-
-		timestampString := currBulletin.Bulletin.Timestamp
-		timestamp, timestampErr := parseNiFiTimestampString(timestampString)
-		if timestampErr != nil {
-			notification.SendMessage(timestampErr.Error())
-		} else {
-			timestampString = timestamp.Format(nifiFormattedTimestampFormat)
-			event.Timestamp = timestamp.Unix()
+		event, validEvent, eventErr := constructSentryEvent(curBulletin)
+		if eventErr != nil {
+			notification.SendMessage(eventErr.Error())
+		}
+		if !validEvent {
+			continue
 		}
 
-		event.Tags["category"] = currBulletin.Bulletin.Category
-		event.Tags["id"] = fmt.Sprintf("%d", currBulletin.ID)
-		event.Tags["source_id"] = currBulletin.SourceID
-		event.Tags["group_id"] = currBulletin.GroupID
-		event.Tags["source_name"] = currBulletin.Bulletin.SourceName
-		event.Tags["timestamp_string"] = timestampString
-		event.Fingerprint = []string{currBulletin.GroupID, currBulletin.SourceID}
 		sentry.CaptureEvent(event)
-		lastId = currBulletin.ID
+		lastID = curBulletin.ID
 	}
 	sentry.Flush(time.Second * 30)
 
-	// Save lastId to file after loop is done. Benefit of checkpointing within
-	// the loop (and potentially have a super accurate lastId--in case the command
+	// Save lastID to file after loop is done. Benefit of checkpointing within
+	// the loop (and potentially have a super accurate lastID--in case the command
 	// errors) not considered more beneficial than less frequent I/O operations.
-	saveErr := saveLastId(ingest.persistenceDirFlag, &apiURL, &sentryDSN, lastId)
+	saveErr := saveLastID(ingest.persistenceDirFlag, &apiURL, &sentryDSN, lastID)
 	if saveErr != nil {
 		notification.SendMessage(saveErr.Error())
 		cli.ExitCommandExecutionError()
 	}
+}
+
+func constructSentryEvent(curBulletin BulletinProcessor) (*sentry.Event, bool, error) {
+	event := sentry.NewEvent()
+	var err error
+	validEvent := true
+
+	event.Message = curBulletin.Bulletin.SourceName + " [" + curBulletin.GroupID + "]"
+	event.Exception = buildSentryException(curBulletin.Bulletin.SourceName+" ["+curBulletin.GroupID+"]", curBulletin.Bulletin.Message)
+	event.Level = sentry.Level(strings.ToLower(curBulletin.Bulletin.Level))
+
+	timestampString := curBulletin.Bulletin.Timestamp
+	timestamp, timestampErr := parseNiFiTimestampString(timestampString)
+	if timestampErr != nil {
+		err = timestampErr
+	} else {
+		timestampString = timestamp.Format(nifiFormattedTimestampFormat)
+		event.Timestamp = timestamp.Unix()
+	}
+
+	event.Tags["category"] = curBulletin.Bulletin.Category
+	event.Tags["id"] = fmt.Sprintf("%d", curBulletin.ID)
+	event.Tags["source_id"] = curBulletin.SourceID
+	event.Tags["group_id"] = curBulletin.GroupID
+	event.Tags["source_name"] = curBulletin.Bulletin.SourceName
+	event.Tags["timestamp_string"] = timestampString
+	event.Fingerprint = []string{curBulletin.GroupID, curBulletin.SourceID}
+
+	return event, validEvent, err
 }
 
 func buildSentryException(messageType string, message string) []sentry.Exception {
@@ -243,7 +259,7 @@ func buildSentryException(messageType string, message string) []sentry.Exception
 	}}
 }
 
-func getLastIdStoragePath(storageDir *string, flowBulletinURL *string, sentryDSN *string) (string, error) {
+func getLastIDStoragePath(storageDir *string, flowBulletinURL *string, sentryDSN *string) (string, error) {
 	if len(*storageDir) == 0 || len(*flowBulletinURL) == 0 || len(*sentryDSN) == 0 {
 		return "", fmt.Errorf("Make sure the storage directory, flow bulletin URL and Sentry DSN are not blank")
 	}
@@ -252,20 +268,20 @@ func getLastIdStoragePath(storageDir *string, flowBulletinURL *string, sentryDSN
 	hasher.Write([]byte(*flowBulletinURL + *sentryDSN))
 	sha := hex.EncodeToString(hasher.Sum(nil))
 
-	return *storageDir + string(os.PathSeparator) + sha + lastIdExtension, nil
+	return *storageDir + string(os.PathSeparator) + sha + lastIDExtension, nil
 }
 
-func saveLastId(storageDir *string, flowBulletinURL *string, sentryDSN *string, lastId int64) error {
-	path, pathErr := getLastIdStoragePath(storageDir, flowBulletinURL, sentryDSN)
+func saveLastID(storageDir *string, flowBulletinURL *string, sentryDSN *string, lastID int64) error {
+	path, pathErr := getLastIDStoragePath(storageDir, flowBulletinURL, sentryDSN)
 	if pathErr != nil {
 		return pathErr
 	}
 
-	return ioutil.WriteFile(path, []byte(fmt.Sprintf("%d", lastId)), 0600)
+	return ioutil.WriteFile(path, []byte(fmt.Sprintf("%d", lastID)), 0600)
 }
 
-func getLastId(storageDir *string, flowBulletinURL *string, sentryDSN *string) (int64, error) {
-	path, pathErr := getLastIdStoragePath(storageDir, flowBulletinURL, sentryDSN)
+func getLastID(storageDir *string, flowBulletinURL *string, sentryDSN *string) (int64, error) {
+	path, pathErr := getLastIDStoragePath(storageDir, flowBulletinURL, sentryDSN)
 	if pathErr != nil {
 		return 0, pathErr
 	}
@@ -284,17 +300,17 @@ func getLastId(storageDir *string, flowBulletinURL *string, sentryDSN *string) (
 	scanner := bufio.NewScanner(file)
 	// We expect the last ID to be the first line in the file
 	scanner.Scan()
-	lastIdString := scanner.Text()
+	lastIDString := scanner.Text()
 	if scannerErr := scanner.Err(); scannerErr != nil {
 		return 0, scannerErr
 	}
 
-	lastId, lastIdErr := parseNiFiIdString(lastIdString)
+	lastID, lastIDErr := parseNiFiIDString(lastIDString)
 
-	return lastId, lastIdErr
+	return lastID, lastIDErr
 }
 
-func parseNiFiIdString(idString string) (int64, error) {
+func parseNiFiIDString(idString string) (int64, error) {
 	return strconv.ParseInt(idString, 10, 64)
 }
 
