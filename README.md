@@ -55,6 +55,9 @@ The following are environment variables that are generally optional but might be
 
 - `SRE_INFRA_BILL_REQUIRED_TAGS`: Required by the `infra bill validate` sub-command. Comma-separated list of keys that are required for billing infrastructure e.g `"OwnerList,EnvironmentList,EndDate"`.
 - `SRE_NOTIFICATION_SLACK_WEBHOOK_URL`: Not required. Slack Webhook URL to use to send notifications to Slack. If not set, tool will not try to send notifications to Slack.
+- `SRE_MONITORING_NIFI_FLOW_BULLETIN_URL`: Required by the `monitoring nifi bulletin flow ingest` sub-command. The URL for the NiFi bulletin board endpoint to get flow bulletins. Read about the NiFi flow bulletin board endpoint [here](https://nifi.apache.org/docs/nifi-docs/rest-api/index.html).
+- `SRE_MONITORING_NIFI_FLOW_BULLETIN_SENTRY_DSN`: Required by the `monitoring nifi bulletin flow ingest` sub-command. The Sentry DSN to send bulletins from the flow bulletin endpoint.
+- `SRE_NIFI_SYSTEM_DIAGNOSTICS_URL`: Recommended for the `monitoring nifi bulletin flow ingest` sub-command. The endpoint to get NiFi's system diagnostics information. Read about the NiFi system diagnostics endpoint [here](https://nifi.apache.org/docs/nifi-docs/rest-api/index.html).
 
 ### Running SRE Tooling On AWS Lambda
 
