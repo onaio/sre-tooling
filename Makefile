@@ -9,7 +9,10 @@ PREFIX := /usr/local
 GOFLAGS := -v -mod=mod
 EXTRA_GOFLAGS ?=
 
-build:
+test:
+	go test -bench=. -v ./...
+
+build: test
 	go build $(GOFLAGS) $(EXTRA_GOFLAGS)
 
 clean:
