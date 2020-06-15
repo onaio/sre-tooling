@@ -215,7 +215,7 @@ func GetNewResourceIndex(
 	// Don't check if error emitted since that would have already been caught before
 	resourceIndex, _ := getResourceIndex(resource, indexTag)
 	if indexMap[resourceIndex] == 1 {
-		return resourceIndex, fmt.Errorf("Index for resource with ID %s doesn't need changing", resource.ID)
+		return resourceIndex, nil
 	}
 
 	// Try calculate a new index for the resource
