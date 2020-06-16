@@ -74,6 +74,7 @@ func TestGetNewResourceIndexDuplicateIndexGreaterZero(t *testing.T) {
 
 // Test if error thrown when provided resource ID is not found
 func TestGetNewResourceIndexResourceNotFound(t *testing.T) {
+	nonExistentID := "resource2"
 	resource1Id := "resource1"
 	indexTag := "indexTag"
 	resource1 := cloud.Resource{
@@ -84,7 +85,7 @@ func TestGetNewResourceIndexResourceNotFound(t *testing.T) {
 		Tags:       map[string]string{indexTag: "0"},
 		Properties: map[string]string{}}
 	_, err := GetNewResourceIndex(
-		&resource1Id,
+		&nonExistentID,
 		&indexTag,
 		[]*cloud.Resource{&resource1})
 	if err == nil {
@@ -121,8 +122,8 @@ func TestGetNewResourceIndexIndexOk(t *testing.T) {
 	if calculatedIndex != resource1Index {
 		t.Errorf("Index for resource1 = %d; want %d", calculatedIndex, resource1Index)
 	}
-	if err == nil {
-		t.Errorf("Error for resource1 = nil; want != nil")
+	if err != nil {
+		t.Errorf("Error for resource1 = '%v'; want nil", err)
 	}
 	calculatedIndex, err = GetNewResourceIndex(
 		&resource2Id,
@@ -131,8 +132,8 @@ func TestGetNewResourceIndexIndexOk(t *testing.T) {
 	if calculatedIndex != resource2Index {
 		t.Errorf("Index for resource2 = %d; want %d", calculatedIndex, resource2Index)
 	}
-	if err == nil {
-		t.Errorf("Error for resource2 = nil; want != nil")
+	if err != nil {
+		t.Errorf("Error for resource2 = '%v'; want nil", err)
 	}
 }
 
