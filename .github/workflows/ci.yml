@@ -16,6 +16,13 @@ jobs:
     - name: Run tests
       run: make test
 
+    - name: Send coverage
+      env:
+        COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        GO111MODULE=off go get github.com/mattn/goveralls
+        $(go env GOPATH)/bin/goveralls -coverprofile=cover.out -service=github
+
   release:
     name: Release
     needs: [test]

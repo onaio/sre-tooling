@@ -1,4 +1,6 @@
-## Ona SRE Tooling [![Build Status](https://github.com/onaio/sre-tooling/workflows/CI/badge.svg)](https://github.com/onaio/sre-tooling/actions?query=workflow%3ACI)
+## Ona SRE Tooling
+
+[![Build Status](https://github.com/onaio/sre-tooling/workflows/CI/badge.svg)](https://github.com/onaio/sre-tooling/actions?query=workflow%3ACI) [![Coverage Status](https://coveralls.io/repos/github/onaio/sre-tooling/badge.svg?branch=master)](https://coveralls.io/github/onaio/sre-tooling?branch=master)
 
 A set of useful SRE tools. This project is written Golang (v1.13 and above).
 
