@@ -2,3 +2,4 @@ sre-tooling
 aws-lambda
 .vscode
 *.last
+cover.out
