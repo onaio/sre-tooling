@@ -9,7 +9,7 @@ import (
 	"github.com/onaio/sre-tooling/infra/index/calculate"
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
-	"github.com/onaio/sre-tooling/libs/cloud"
+	"github.com/onaio/sre-tooling/libs/infra"
 	"github.com/onaio/sre-tooling/libs/notification"
 )
 
@@ -103,7 +103,7 @@ func (update *Update) Process() {
 	provider := (*update.providerFlag)[0]
 	resourceType := (*update.typeFlag)[0]
 	region := (*update.regionFlag)[0]
-	resource := cloud.Resource{
+	resource := infra.Resource{
 		Provider:     provider,
 		ResourceType: resourceType,
 		ID:           *update.idFlag,
@@ -117,7 +117,7 @@ func (update *Update) Process() {
 			cli.ExitCommandExecutionError()
 		}
 		tagValue := fmt.Sprintf("%s%s%s", tagDetails[1], newIndexStr, tagDetails[2])
-		curUpdateErr := cloud.UpdateResourceTag(&region, &resource, &tagDetails[0], &tagValue)
+		curUpdateErr := infra.UpdateResourceTag(&region, &resource, &tagDetails[0], &tagValue)
 
 		if curUpdateErr != nil {
 			notification.SendMessage(curUpdateErr.Error())
@@ -126,7 +126,7 @@ func (update *Update) Process() {
 	}
 
 	// Update the resource's index tag last
-	updateErr := cloud.UpdateResourceTag(&region, &resource, update.indexTagFlag, &newIndexStr)
+	updateErr := infra.UpdateResourceTag(&region, &resource, update.indexTagFlag, &newIndexStr)
 
 	if updateErr != nil {
 		notification.SendMessage(updateErr.Error())

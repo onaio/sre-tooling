@@ -1,4 +1,4 @@
-package cloud
+package infra
 
 import (
 	"errors"

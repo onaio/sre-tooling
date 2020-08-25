@@ -8,7 +8,7 @@ import (
 	"github.com/onaio/sre-tooling/infra/expiry/query"
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
-	"github.com/onaio/sre-tooling/libs/cloud"
+	"github.com/onaio/sre-tooling/libs/infra"
 	"github.com/onaio/sre-tooling/libs/notification"
 )
 
@@ -98,7 +98,7 @@ func (prune *Prune) Process() {
 		prune.expiryTagFlag,
 		prune.expiryTagNAValueFlag,
 		prune.expiryTagFormatFlag,
-		func(resource *cloud.Resource, hasExpired bool, expiryTime time.Time, err error) {
+		func(resource *infra.Resource, hasExpired bool, expiryTime time.Time, err error) {
 			if err != nil {
 				notification.SendMessage(fmt.Errorf("Could not figure out which resources have expired: %w", err).Error())
 				hasResourceErr = true

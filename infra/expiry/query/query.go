@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/onaio/sre-tooling/libs/infra"
 	"github.com/onaio/sre-tooling/libs/notification"
 
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
-	"github.com/onaio/sre-tooling/libs/cloud"
 )
 
 const name string = "query"
@@ -20,7 +20,7 @@ const dataFieldExpiryTime = "expiry-time"
 const outputFormatPlain = "plain"
 const outputFormatMarkdown = "markdown"
 
-type ExpiredResourceHandler func(resource *cloud.Resource, hasExpired bool, expiryTime time.Time, err error)
+type ExpiredResourceHandler func(resource *infra.Resource, hasExpired bool, expiryTime time.Time, err error)
 
 // Query queries then notifies (using configured notification channels) infrastructure that has expired
 type Query struct {
@@ -72,12 +72,12 @@ func (query *Query) Init(helpFlagName string, helpFlagDescription string) {
 		query.fieldSeparatorFlag,
 		query.resourceSeparatorFlag,
 		query.listFieldsFlag,
-		query.defaultFieldValueFlag = cloud.AddResourceTableFlags(query.flagSet)
+		query.defaultFieldValueFlag = infra.AddResourceTableFlags(query.flagSet)
 
 }
 
 // AddQueryFlags returns the flags required to query expired infrastructure in the order:
-// 	- Infrastructure filter tags, in the order needed by cloud.AddFilterFlags
+// 	- Infrastructure filter tags, in the order needed by infra.AddFilterFlags
 //  - Maximum age flag
 //	- Expiry tag flag
 //	- Expiry tag not applicable value
@@ -86,7 +86,7 @@ func AddQueryFlags(flagSet *flag.FlagSet) (*flags.StringArray, *flags.StringArra
 	providerFlag,
 		regionFlag,
 		typeFlag,
-		tagFlag := cloud.AddFilterFlags(flagSet)
+		tagFlag := infra.AddFilterFlags(flagSet)
 
 	maxAgeFlag := flagSet.String("max-age", "", "Maximum age of a resource e.g '1h' to mean one hour. Valid time units are 'ns', 'us' (or 'µs'), 'ms', 's', 'm', and 'h'.")
 	expiryTagFlag := flagSet.String("expiry-tag", "", "Name of the tag storing the time when the resource will expire")
@@ -133,7 +133,7 @@ func (query *Query) GetHelpFlag() *bool {
 // and that has expired and sends notifications to the configured notification channels
 func (query *Query) Process() {
 	hasResourceErr := false
-	var expiredResources []*cloud.Resource
+	var expiredResources []*infra.Resource
 	resourceErr := GetExpiredResources(
 		query.providerFlag,
 		query.regionFlag,
@@ -143,7 +143,7 @@ func (query *Query) Process() {
 		query.expiryTagFlag,
 		query.expiryTagNAValueFlag,
 		query.expiryTagFormatFlag,
-		func(resource *cloud.Resource, hasExpired bool, expiryTime time.Time, err error) {
+		func(resource *infra.Resource, hasExpired bool, expiryTime time.Time, err error) {
 			if err != nil {
 				notification.SendMessage(fmt.Errorf("Could not figure out which resources have expired: %w", err).Error())
 				hasResourceErr = true
@@ -176,7 +176,7 @@ func (query *Query) Process() {
 		return
 	}
 
-	rt := new(cloud.ResourceTable)
+	rt := new(infra.ResourceTable)
 	rt.Init(
 		query.showFlag,
 		query.hideHeadersFlag,
@@ -226,8 +226,8 @@ func GetExpiredResources(
 		return fmt.Errorf("If the expiry tag is provided, then the expiry tag format also needs to be provided")
 	}
 
-	allResources, resourcesErr := cloud.GetAllCloudResources(
-		cloud.GetFiltersFromCommandFlags(
+	allResources, resourcesErr := infra.GetAllCloudResources(
+		infra.GetFiltersFromCommandFlags(
 			providerFlag,
 			regionFlag,
 			typeFlag,
@@ -247,7 +247,7 @@ func GetExpiredResources(
 }
 
 // hasResourceExpired checks whether a resource has expired using the provided maximum age and expiry time flag
-func hasResourceExpired(resource *cloud.Resource, maxAge *string, expiryTag *string, expiryTagNAValue, expiryTagFormat *string) (bool, time.Time, error) {
+func hasResourceExpired(resource *infra.Resource, maxAge *string, expiryTag *string, expiryTagNAValue, expiryTagFormat *string) (bool, time.Time, error) {
 	maxAgeReached, maxAgeExpiryTime, maxAgeReachedErr := hasMaxAgeReached(resource, maxAge)
 	if maxAgeReached {
 		return true, maxAgeExpiryTime, maxAgeReachedErr
@@ -270,7 +270,7 @@ func hasResourceExpired(resource *cloud.Resource, maxAge *string, expiryTag *str
 
 // hasExpiryTimeMatured checks whether the expiry time in the provided resource tag has matured. Returns true if time
 // in the past (has matured)
-func hasExpiryTimeMatured(resource *cloud.Resource, expiryTag *string, expiryTagNAValue, expiryTagFormat *string) (bool, time.Time, error) {
+func hasExpiryTimeMatured(resource *infra.Resource, expiryTag *string, expiryTagNAValue, expiryTagFormat *string) (bool, time.Time, error) {
 	expiryDateDiff := int64(0)
 	expiryTime := time.Now()
 
@@ -296,7 +296,7 @@ func hasExpiryTimeMatured(resource *cloud.Resource, expiryTag *string, expiryTag
 
 // hasMaxAgeReached checks whether the provided resource has surpursed its maximum age.
 // Returns true if it has
-func hasMaxAgeReached(resource *cloud.Resource, maxAge *string) (bool, time.Time, error) {
+func hasMaxAgeReached(resource *infra.Resource, maxAge *string) (bool, time.Time, error) {
 	maxAgeDiff := int64(0)
 	expiryTime := time.Now()
 

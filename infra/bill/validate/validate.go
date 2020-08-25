@@ -8,7 +8,7 @@ import (
 
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
-	"github.com/onaio/sre-tooling/libs/cloud"
+	"github.com/onaio/sre-tooling/libs/infra"
 	"github.com/onaio/sre-tooling/libs/notification"
 )
 
@@ -39,7 +39,7 @@ type Validate struct {
 func (validate *Validate) Init(helpFlagName string, helpFlagDescription string) {
 	validate.flagSet = flag.NewFlagSet(validate.GetName(), flag.ExitOnError)
 	validate.helpFlag = validate.flagSet.Bool(helpFlagName, false, helpFlagDescription)
-	validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag = cloud.AddFilterFlags(validate.flagSet)
+	validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag = infra.AddFilterFlags(validate.flagSet)
 	validate.outputFormatFlag = validate.flagSet.String(
 		"output-format",
 		outputFormatPlain,
@@ -53,7 +53,7 @@ func (validate *Validate) Init(helpFlagName string, helpFlagDescription string) 
 		validate.fieldSeparatorFlag,
 		validate.resourceSeparatorFlag,
 		validate.listFieldsFlag,
-		validate.defaultFieldValueFlag = cloud.AddResourceTableFlags(validate.flagSet)
+		validate.defaultFieldValueFlag = infra.AddResourceTableFlags(validate.flagSet)
 	validate.subCommands = []cli.Command{}
 }
 
@@ -85,15 +85,15 @@ func (validate *Validate) Process() {
 	}
 	requiredTags := strings.Split(requiredTagsString, ",")
 
-	allResources, resourcesErr := cloud.GetAllCloudResources(cloud.GetFiltersFromCommandFlags(validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag), true)
+	allResources, resourcesErr := infra.GetAllCloudResources(infra.GetFiltersFromCommandFlags(validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag), true)
 	if resourcesErr != nil {
 		notification.SendMessage(resourcesErr.Error())
 		cli.ExitCommandExecutionError()
 	}
 
-	var untaggedResources []*cloud.Resource
+	var untaggedResources []*infra.Resource
 	for _, curResource := range allResources {
-		curTagKeys := cloud.GetTagKeys(curResource)
+		curTagKeys := infra.GetTagKeys(curResource)
 		missingTags := getItemsInANotB(&requiredTags, &curTagKeys)
 		if len(missingTags) > 0 {
 			if curResource.Data == nil {
@@ -109,7 +109,7 @@ func (validate *Validate) Process() {
 		return
 	}
 
-	rt := new(cloud.ResourceTable)
+	rt := new(infra.ResourceTable)
 	rt.Init(
 		validate.showFlag,
 		validate.hideHeadersFlag,

@@ -1,4 +1,4 @@
-package cloud
+package infra
 
 // This file contains all the CLI helpers related to the cloud package
 

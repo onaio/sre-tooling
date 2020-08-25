@@ -5,7 +5,7 @@ import (
 
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
-	"github.com/onaio/sre-tooling/libs/cloud"
+	"github.com/onaio/sre-tooling/libs/infra"
 	"github.com/onaio/sre-tooling/libs/notification"
 )
 
@@ -31,14 +31,14 @@ type Query struct {
 func (query *Query) Init(helpFlagName string, helpFlagDescription string) {
 	query.flagSet = flag.NewFlagSet(query.GetName(), flag.ExitOnError)
 	query.helpFlag = query.flagSet.Bool(helpFlagName, false, helpFlagDescription)
-	query.providerFlag, query.regionFlag, query.typeFlag, query.tagFlag = cloud.AddFilterFlags(query.flagSet)
+	query.providerFlag, query.regionFlag, query.typeFlag, query.tagFlag = infra.AddFilterFlags(query.flagSet)
 	query.showFlag,
 		query.hideHeadersFlag,
 		query.csvFlag,
 		query.fieldSeparatorFlag,
 		query.resourceSeparatorFlag,
 		query.listFieldsFlag,
-		query.defaultFieldValueFlag = cloud.AddResourceTableFlags(query.flagSet)
+		query.defaultFieldValueFlag = infra.AddResourceTableFlags(query.flagSet)
 
 	query.subCommands = []cli.Command{}
 }
@@ -69,13 +69,13 @@ func (query *Query) Process() {
 		cli.ExitCommandInterpretationError()
 	}
 
-	allResources, resourcesErr := cloud.GetAllCloudResources(cloud.GetFiltersFromCommandFlags(query.providerFlag, query.regionFlag, query.typeFlag, query.tagFlag), true)
+	allResources, resourcesErr := infra.GetAllCloudResources(infra.GetFiltersFromCommandFlags(query.providerFlag, query.regionFlag, query.typeFlag, query.tagFlag), true)
 	if resourcesErr != nil {
 		notification.SendMessage(resourcesErr.Error())
 		cli.ExitCommandExecutionError()
 	}
 
-	rt := new(cloud.ResourceTable)
+	rt := new(infra.ResourceTable)
 	rt.Init(
 		query.showFlag,
 		query.hideHeadersFlag,
