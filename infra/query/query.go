@@ -69,7 +69,7 @@ func (query *Query) Process() {
 		cli.ExitCommandInterpretationError()
 	}
 
-	allResources, resourcesErr := infra.GetAllCloudResources(infra.GetFiltersFromCommandFlags(query.providerFlag, query.regionFlag, query.typeFlag, query.tagFlag), true)
+	allResources, resourcesErr := infra.GetResources(infra.GetFiltersFromCommandFlags(query.providerFlag, query.regionFlag, query.typeFlag, query.tagFlag))
 	if resourcesErr != nil {
 		notification.SendMessage(resourcesErr.Error())
 		cli.ExitCommandExecutionError()

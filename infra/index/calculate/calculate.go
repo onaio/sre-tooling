@@ -11,6 +11,7 @@ import (
 	"github.com/onaio/sre-tooling/libs/infra"
 	"github.com/onaio/sre-tooling/libs/notification"
 	"github.com/onaio/sre-tooling/libs/numbers"
+	"github.com/onaio/sre-tooling/libs/types"
 )
 
 const name string = "calculate"
@@ -147,13 +148,12 @@ func FetchAndCalculateResourceIndex(
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 	}
 
-	allResources, resourcesErr := infra.GetAllCloudResources(
+	allResources, resourcesErr := infra.GetResources(
 		infra.GetFiltersFromCommandFlags(
 			providerFlag,
 			regionFlag,
 			typeFlag,
-			tagFlag),
-		true)
+			tagFlag))
 	if resourcesErr != nil {
 		return -1, resourcesErr
 	}
@@ -177,11 +177,11 @@ func FetchAndCalculateResourceIndex(
 func GetNewResourceIndex(
 	resourceID *string,
 	indexTag *string,
-	resources []*infra.Resource) (int, error) {
+	resources []*types.InfraResource) (int, error) {
 
 	// Map with the resource index as the key and the number of resources tagged with the index as the value
 	indexMap := make(map[int]int)
-	resourceMap := make(map[string]*infra.Resource)
+	resourceMap := make(map[string]*types.InfraResource)
 	largestIndex := 0
 	for _, curResource := range resources {
 		resourceMap[curResource.ID] = curResource
@@ -232,7 +232,7 @@ func GetNewResourceIndex(
 
 // getResourceIndex returns the tagged value of a resource's index or the default index (0)
 // if the resource has not been tagged with an index
-func getResourceIndex(resource *infra.Resource, indexTag *string) (int, error) {
+func getResourceIndex(resource *types.InfraResource, indexTag *string) (int, error) {
 	indexString, indexTagSet := resource.Tags[*indexTag]
 	resourceIndex := 0
 	if indexTagSet && len(indexString) > 0 {

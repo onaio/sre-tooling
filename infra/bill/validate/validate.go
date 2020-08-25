@@ -10,6 +10,7 @@ import (
 	"github.com/onaio/sre-tooling/libs/cli/flags"
 	"github.com/onaio/sre-tooling/libs/infra"
 	"github.com/onaio/sre-tooling/libs/notification"
+	"github.com/onaio/sre-tooling/libs/types"
 )
 
 const name string = "validate"
@@ -85,13 +86,13 @@ func (validate *Validate) Process() {
 	}
 	requiredTags := strings.Split(requiredTagsString, ",")
 
-	allResources, resourcesErr := infra.GetAllCloudResources(infra.GetFiltersFromCommandFlags(validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag), true)
+	allResources, resourcesErr := infra.GetResources(infra.GetFiltersFromCommandFlags(validate.providerFlag, validate.regionFlag, validate.typeFlag, validate.tagFlag))
 	if resourcesErr != nil {
 		notification.SendMessage(resourcesErr.Error())
 		cli.ExitCommandExecutionError()
 	}
 
-	var untaggedResources []*infra.Resource
+	var untaggedResources []*types.InfraResource
 	for _, curResource := range allResources {
 		curTagKeys := infra.GetTagKeys(curResource)
 		missingTags := getItemsInANotB(&requiredTags, &curTagKeys)

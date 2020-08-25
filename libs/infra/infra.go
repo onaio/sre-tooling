@@ -1,58 +1,61 @@
 package infra
 
 import (
-	"errors"
 	"flag"
+	"fmt"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/onaio/sre-tooling/libs/cli/flags"
+	"github.com/onaio/sre-tooling/libs/infra/aws"
+	"github.com/onaio/sre-tooling/libs/types"
 )
 
 type Provider interface {
-	getName() string
-	getAllResources(filter *Filter, quiet bool) ([]*Resource, error)
-	updateResourceTag(region *string, resource *Resource, tagKey *string, tagValue *string) error
-	updateResourceState(resource *Resource, safe bool, state string) error
-}
-
-type Resource struct {
-	Provider     string
-	ID           string
-	Location     string
-	ResourceType string
-	LaunchTime   time.Time
-	Tags         map[string]string
-	Properties   map[string]string
-	Data         map[string]string
-}
-
-type Filter struct {
-	Providers     []string
-	ResourceTypes []string
-	Regions       []string
-	Tags          map[string]string
+	Init() error
+	GetName() string
+	GetResources(filter *types.InfraFilter) ([]*types.InfraResource, error)
+	UpdateResourceTag(resource *types.InfraResource, tagKey *string, tagValue *string) error
+	UpdateResourceState(resource *types.InfraResource, safe bool, state string) error
 }
 
 const tagFlagSeparator = ":"
 
-func GetAllCloudResources(filter *Filter, quiet bool) ([]*Resource, error) {
-	allResources := []*Resource{}
+func GetResources(filter *types.InfraFilter) ([]*types.InfraResource, error) {
+	allResources := []*types.InfraResource{}
 
-	aws := new(AWS)
-	if considerProvider(aws, filter) {
-		awsResources, awsErr := aws.getAllResources(filter, quiet)
-		if awsErr != nil {
-			return nil, awsErr
+	providers, providerErr := getProviders()
+	if providerErr != nil {
+		return nil, providerErr
+	}
+
+	for _, curProvider := range providers {
+		if considerProvider(curProvider, filter) {
+			pResources, curErr := curProvider.GetResources(filter)
+			if curErr != nil {
+				return nil, curErr
+			}
+			allResources = append(allResources, pResources...)
 		}
-		allResources = append(allResources, awsResources...)
 	}
 
 	return allResources, nil
 }
 
-func GetTagKeys(resource *Resource) []string {
+func getProviders() ([]Provider, error) {
+	providers := []Provider{}
+
+	aws := new(aws.AWS)
+	awsErr := aws.Init()
+	if awsErr != nil {
+		return nil, awsErr
+	}
+	providers = append(providers, aws)
+
+	return providers, nil
+}
+
+func GetTagKeys(resource *types.InfraResource) []string {
 	keyObjects := reflect.ValueOf(resource.Tags).MapKeys()
 	keys := make([]string, len(keyObjects))
 	for i := 0; i < len(keyObjects); i++ {
@@ -75,8 +78,8 @@ func AddFilterFlags(flagSet *flag.FlagSet) (*flags.StringArray, *flags.StringArr
 	return providerFlag, regionFlag, typeFlag, tagFlag
 }
 
-func GetFiltersFromCommandFlags(providerFlag *flags.StringArray, regionFlag *flags.StringArray, typeFlag *flags.StringArray, tagFlag *flags.StringArray) *Filter {
-	filter := Filter{}
+func GetFiltersFromCommandFlags(providerFlag *flags.StringArray, regionFlag *flags.StringArray, typeFlag *flags.StringArray, tagFlag *flags.StringArray) *types.InfraFilter {
+	filter := types.InfraFilter{}
 	if len(*providerFlag) > 0 {
 		filter.Providers = *providerFlag
 	}
@@ -101,75 +104,32 @@ func GetFiltersFromCommandFlags(providerFlag *flags.StringArray, regionFlag *fla
 	return &filter
 }
 
-func UpdateResourceTag(region *string, resource *Resource, tagKey *string, tagValue *string) error {
-	switch resource.Provider {
-	case awsProviderName:
-		aws := new(AWS)
-		return aws.updateResourceTag(region, resource, tagKey, tagValue)
-	default:
-		return errors.New("Provider " + resource.Provider + " doesn't exist")
+func UpdateResourceTag(resource *types.InfraResource, tagKey *string, tagValue *string) error {
+	providers, providerErr := getProviders()
+	if providerErr != nil {
+		return providerErr
 	}
+
+	for _, curProvider := range providers {
+		if curProvider.GetName() == resource.Provider {
+			return curProvider.UpdateResourceTag(resource, tagKey, tagValue)
+		}
+	}
+
+	return fmt.Errorf("Provider '%s' isn't implemented yet", resource.Provider)
 }
 
-func considerProvider(providerIface interface{}, filter *Filter) bool {
+func considerProvider(providerIface interface{}, filter *types.InfraFilter) bool {
 	provider := providerIface.(Provider)
 	if len(filter.Providers) == 0 {
 		return true
 	}
 
 	for _, curProviderName := range filter.Providers {
-		if strings.ToLower(curProviderName) == strings.ToLower(provider.getName()) {
+		if strings.ToLower(curProviderName) == strings.ToLower(provider.GetName()) {
 			return true
 		}
 	}
 
 	return false
-}
-
-func considerRegion(region string, filter *Filter) bool {
-	if len(filter.Regions) == 0 {
-		return true
-	}
-
-	for _, curRegion := range filter.Regions {
-		if strings.ToLower(curRegion) == strings.ToLower(region) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func considerResourceType(resourceType string, filter *Filter) bool {
-	if len(filter.ResourceTypes) == 0 {
-		return true
-	}
-
-	for _, curType := range filter.ResourceTypes {
-		if strings.ToLower(curType) == strings.ToLower(resourceType) {
-			return true
-		}
-	}
-
-	return false
-}
-
-func considerTags(tags map[string]string, filter *Filter) bool {
-	if len(filter.Tags) == 0 {
-		return true
-	}
-
-	allOk := true
-	for tagName, tagValue := range filter.Tags {
-		if tagValueToCheck, ok := tags[tagName]; ok {
-			if strings.ToLower(tagValue) != strings.ToLower(tagValueToCheck) {
-				allOk = false
-				break
-			}
-		} else {
-			allOk = false
-			break
-		}
-	}
-	return allOk
 }
