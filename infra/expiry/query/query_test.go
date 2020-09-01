@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onaio/sre-tooling/libs/cloud"
+	"github.com/onaio/sre-tooling/libs/types"
 )
 
 // Test whether maxAge returns the right values if the provided maximum age is a blank string
 func TestHasMaxAgeReachedEmptyMaxAge(t *testing.T) {
-	resource := cloud.Resource{
+	resource := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah-id",
 		Location:   "eu-central-1a",
@@ -30,7 +30,7 @@ func TestHasMaxAgeReachedEmptyMaxAge(t *testing.T) {
 
 // Test whether maxAge returns the right values if the provided maximum age is an unparseable string
 func TestHasMaxAgeReachedIncorrectMaxAge(t *testing.T) {
-	resource := cloud.Resource{
+	resource := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah-id",
 		Location:   "eu-central-1a",
@@ -51,7 +51,7 @@ func TestHasMaxAgeReachedIncorrectMaxAge(t *testing.T) {
 
 // Test whether maxAge returns the right values if the provided maximum age hasn't yet been reached
 func TestHasMaxAgeReachedImmatureMaxAge(t *testing.T) {
-	resource := cloud.Resource{
+	resource := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah-id",
 		Location:   "eu-central-1a",
@@ -73,7 +73,7 @@ func TestHasMaxAgeReachedImmatureMaxAge(t *testing.T) {
 // Test whether maxAge returns the right values if the provided maximum age has been reached
 func TestHasMaxAgeReachedMatureMaxAge(t *testing.T) {
 	launchTime := time.Now().Add(-time.Hour) // 1 hour in the past
-	resource := cloud.Resource{
+	resource := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah-id",
 		Location:   "eu-central-1a",
@@ -104,7 +104,7 @@ func TestHasExpiryTimeMaturedTagNotSet(t *testing.T) {
 	expiryTagNAValue := defaultExpiryTagNAValue
 	timeFormat := defaultTimeFormat
 
-	resource := cloud.Resource{
+	resource := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah-id",
 		Location:   "eu-central-1a",
@@ -129,7 +129,7 @@ func TestHasExpiryTimeMaturedTagEmpty(t *testing.T) {
 	expiryTagNAValue := defaultExpiryTagNAValue
 	timeFormat := defaultTimeFormat
 
-	resource := cloud.Resource{
+	resource := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah-id",
 		Location:   "eu-central-1a",
@@ -157,7 +157,7 @@ func TestHasExpiryTimeMaturedIncorrectTagValue(t *testing.T) {
 	expiryTagNAValue := defaultExpiryTagNAValue
 	timeFormat := defaultTimeFormat
 
-	resource := cloud.Resource{
+	resource := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah-id",
 		Location:   "eu-central-1a",
@@ -185,7 +185,7 @@ func TestHasExpiryTimeMaturedIncorrectTimeFormat(t *testing.T) {
 	expiryTagNAValue := defaultExpiryTagNAValue
 	timeFormat := "fdsafdsfewf"
 
-	resource := cloud.Resource{
+	resource := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah-id",
 		Location:   "eu-central-1a",
@@ -213,7 +213,7 @@ func TestHasExpiryTimeMaturedExpiredResource(t *testing.T) {
 	tagName := "someRandomTag"
 	tagValue := time.Now().Add(-(time.Hour * 24)).Format(timeFormat)
 
-	resource := cloud.Resource{
+	resource := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah-id",
 		Location:   "eu-central-1a",
@@ -247,7 +247,7 @@ func TestHasExpiryTimeMaturedNotExpiredResource(t *testing.T) {
 	tagName := "someRandomTag"
 	tagValue := time.Now().Add((time.Hour)).Format(timeFormat)
 
-	resource := cloud.Resource{
+	resource := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah-id",
 		Location:   "eu-central-1a",

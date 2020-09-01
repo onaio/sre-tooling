@@ -1,4 +1,4 @@
-package cloud
+package infra
 
 // This file contains all the CLI helpers related to the cloud package
 
@@ -10,6 +10,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
+	"github.com/onaio/sre-tooling/libs/types"
 )
 
 // ResourceTable is responsible for rendering cloud resources in a table
@@ -53,7 +54,7 @@ func AddResourceTableFlags(flagSet *flag.FlagSet) (*flags.StringArray, *bool, *b
 	return showFlag, hideHeadersFlag, csvFlag, fieldSeparatorFlag, resourceSeparatorFlag, listFieldsFlag, defaultFieldValueFlag
 }
 
-func (rt *ResourceTable) Render(allResources []*Resource) (string, error) {
+func (rt *ResourceTable) Render(allResources []*types.InfraResource) (string, error) {
 	rows := make([]map[string]string, len(allResources))
 	headers := make(map[string]bool)
 	for rowIndex, curResource := range allResources {

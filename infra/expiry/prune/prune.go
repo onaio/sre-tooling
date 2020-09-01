@@ -8,8 +8,8 @@ import (
 	"github.com/onaio/sre-tooling/infra/expiry/query"
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/libs/cli/flags"
-	"github.com/onaio/sre-tooling/libs/cloud"
 	"github.com/onaio/sre-tooling/libs/notification"
+	"github.com/onaio/sre-tooling/libs/types"
 )
 
 // Make sure there's a -safe flag (that's defaulted to true) where, e.g you are not allowed to terminate VMs that aren't already shut down
@@ -98,7 +98,7 @@ func (prune *Prune) Process() {
 		prune.expiryTagFlag,
 		prune.expiryTagNAValueFlag,
 		prune.expiryTagFormatFlag,
-		func(resource *cloud.Resource, hasExpired bool, expiryTime time.Time, err error) {
+		func(resource *types.InfraResource, hasExpired bool, expiryTime time.Time, err error) {
 			if err != nil {
 				notification.SendMessage(fmt.Errorf("Could not figure out which resources have expired: %w", err).Error())
 				hasResourceErr = true

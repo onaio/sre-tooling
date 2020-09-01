@@ -1,4 +1,4 @@
-package cloud
+package infra
 
 import (
 	"strings"
@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/onaio/sre-tooling/libs/cli/flags"
+	"github.com/onaio/sre-tooling/libs/types"
 )
 
 // Test whether setting the "hide headers" argument in the resource table actually works
@@ -18,14 +19,14 @@ func TestResourceTableRenderHeader(t *testing.T) {
 	listFieldsFlag := false
 	defaultFieldValueFlag := ""
 
-	resource1 := Resource{
+	resource1 := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah",
 		Location:   "eu-central-1a",
 		LaunchTime: time.Now(),
 		Tags:       map[string]string{"Name": "testResourceNameTag"},
 		Properties: map[string]string{}}
-	var resources []*Resource
+	var resources []*types.InfraResource
 	resources = append(resources, &resource1)
 
 	t.Run("no-headers", func(t *testing.T) {
@@ -87,7 +88,7 @@ func TestResourceTableShowColumns(t *testing.T) {
 	ipPropertyValue := "0.0.0.0"
 	missingTagsDataValue := "EndDate"
 
-	resource1 := Resource{
+	resource1 := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "blah",
 		Location:   "eu-central-1a",
@@ -95,7 +96,7 @@ func TestResourceTableShowColumns(t *testing.T) {
 		Tags:       map[string]string{nameTag: nameTagValue},
 		Properties: map[string]string{publicIPProperty: ipPropertyValue},
 		Data:       map[string]string{missingTagsData: missingTagsDataValue}}
-	var resources []*Resource
+	var resources []*types.InfraResource
 	resources = append(resources, &resource1)
 
 	t.Run("show-flags-set", func(t *testing.T) {

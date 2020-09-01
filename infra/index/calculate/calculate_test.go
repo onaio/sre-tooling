@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onaio/sre-tooling/libs/cloud"
+	"github.com/onaio/sre-tooling/libs/types"
 )
 
 // Test new index when two resources with duplicate indexes provided
@@ -14,14 +14,14 @@ func TestGetNewResourceIndexDuplicateIndex(t *testing.T) {
 	resource1Id := "resource1"
 	indexTag := "indexTag"
 	index := "0"
-	resource1 := cloud.Resource{
+	resource1 := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         resource1Id,
 		Location:   "eu-central-1a",
 		LaunchTime: time.Now(),
 		Tags:       map[string]string{indexTag: index},
 		Properties: map[string]string{}}
-	resource2 := cloud.Resource{
+	resource2 := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "resource2",
 		Location:   "eu-central-1a",
@@ -31,7 +31,7 @@ func TestGetNewResourceIndexDuplicateIndex(t *testing.T) {
 	calculatedIndex, err := GetNewResourceIndex(
 		&resource1Id,
 		&indexTag,
-		[]*cloud.Resource{&resource1, &resource2})
+		[]*types.InfraResource{&resource1, &resource2})
 	if calculatedIndex != 1 {
 		t.Errorf("Index for resource1 = %d; want 1", calculatedIndex)
 	}
@@ -46,14 +46,14 @@ func TestGetNewResourceIndexDuplicateIndexGreaterZero(t *testing.T) {
 	resource1Id := "resource1"
 	indexTag := "indexTag"
 	index := "2"
-	resource1 := cloud.Resource{
+	resource1 := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         resource1Id,
 		Location:   "eu-central-1a",
 		LaunchTime: time.Now(),
 		Tags:       map[string]string{indexTag: index},
 		Properties: map[string]string{}}
-	resource2 := cloud.Resource{
+	resource2 := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         "resource2",
 		Location:   "eu-central-1a",
@@ -63,7 +63,7 @@ func TestGetNewResourceIndexDuplicateIndexGreaterZero(t *testing.T) {
 	calculatedIndex, err := GetNewResourceIndex(
 		&resource1Id,
 		&indexTag,
-		[]*cloud.Resource{&resource1, &resource2})
+		[]*types.InfraResource{&resource1, &resource2})
 	if calculatedIndex != 0 {
 		t.Errorf("Index for resource1 = %d; want 1", calculatedIndex)
 	}
@@ -77,7 +77,7 @@ func TestGetNewResourceIndexResourceNotFound(t *testing.T) {
 	nonExistentID := "resource2"
 	resource1Id := "resource1"
 	indexTag := "indexTag"
-	resource1 := cloud.Resource{
+	resource1 := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         resource1Id,
 		Location:   "eu-central-1a",
@@ -87,7 +87,7 @@ func TestGetNewResourceIndexResourceNotFound(t *testing.T) {
 	_, err := GetNewResourceIndex(
 		&nonExistentID,
 		&indexTag,
-		[]*cloud.Resource{&resource1})
+		[]*types.InfraResource{&resource1})
 	if err == nil {
 		t.Errorf("Error for resource1 = nil; want != nil")
 	}
@@ -99,7 +99,7 @@ func TestGetNewResourceIndexIndexOk(t *testing.T) {
 	resource1Id := "resource1"
 	indexTag := "indexTag"
 	resource1Index := 0
-	resource1 := cloud.Resource{
+	resource1 := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         resource1Id,
 		Location:   "eu-central-1a",
@@ -108,7 +108,7 @@ func TestGetNewResourceIndexIndexOk(t *testing.T) {
 		Properties: map[string]string{}}
 	resource2Index := 1
 	resource2Id := "resource2"
-	resource2 := cloud.Resource{
+	resource2 := types.InfraResource{
 		Provider:   "testProvider",
 		ID:         resource2Id,
 		Location:   "eu-central-1a",
@@ -118,7 +118,7 @@ func TestGetNewResourceIndexIndexOk(t *testing.T) {
 	calculatedIndex, err := GetNewResourceIndex(
 		&resource1Id,
 		&indexTag,
-		[]*cloud.Resource{&resource1, &resource2})
+		[]*types.InfraResource{&resource1, &resource2})
 	if calculatedIndex != resource1Index {
 		t.Errorf("Index for resource1 = %d; want %d", calculatedIndex, resource1Index)
 	}
@@ -128,7 +128,7 @@ func TestGetNewResourceIndexIndexOk(t *testing.T) {
 	calculatedIndex, err = GetNewResourceIndex(
 		&resource2Id,
 		&indexTag,
-		[]*cloud.Resource{&resource1, &resource2})
+		[]*types.InfraResource{&resource1, &resource2})
 	if calculatedIndex != resource2Index {
 		t.Errorf("Index for resource2 = %d; want %d", calculatedIndex, resource2Index)
 	}
@@ -140,7 +140,7 @@ func TestGetNewResourceIndexIndexOk(t *testing.T) {
 // Test if 0 gotten if index tag is an empty string
 func TestGetResourceIndexEmptyString(t *testing.T) {
 	indexTag := "indexTag"
-	resource1 := cloud.Resource{
+	resource1 := types.InfraResource{
 		Tags: map[string]string{indexTag: ""}}
 	index, err := getResourceIndex(&resource1, &indexTag)
 	if err != nil {
@@ -154,7 +154,7 @@ func TestGetResourceIndexEmptyString(t *testing.T) {
 // Test if 0 gotten if index tag not set
 func TestGetResourceIndexTagNotSet(t *testing.T) {
 	indexTag := "indexTag"
-	resource1 := cloud.Resource{
+	resource1 := types.InfraResource{
 		Tags: map[string]string{}}
 	index, err := getResourceIndex(&resource1, &indexTag)
 	if err != nil {
@@ -168,7 +168,7 @@ func TestGetResourceIndexTagNotSet(t *testing.T) {
 // Test if error gotten if index tag value is not a number
 func TestGetResourceIndexNonNumberIndex(t *testing.T) {
 	indexTag := "indexTag"
-	resource1 := cloud.Resource{
+	resource1 := types.InfraResource{
 		Tags: map[string]string{indexTag: "dfd"}}
 	_, err := getResourceIndex(&resource1, &indexTag)
 	if err == nil {
@@ -180,7 +180,7 @@ func TestGetResourceIndexNonNumberIndex(t *testing.T) {
 func TestGetResourceIndexOk(t *testing.T) {
 	indexTag := "indexTag"
 	indexString := "231232"
-	resource1 := cloud.Resource{
+	resource1 := types.InfraResource{
 		Tags: map[string]string{indexTag: indexString}}
 	index, err := getResourceIndex(&resource1, &indexTag)
 	if err != nil {
