@@ -6,7 +6,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/onaio/sre-tooling/libs/types"
 )
 
@@ -47,6 +49,50 @@ func (a *AWS) Init() error {
 	}
 
 	return nil
+}
+
+func (a *AWS) GetCostAndUsage(filter *types.CostAndUsageFilter) ([]*types.CostAndUsageOutput, error) {
+	session := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	ceService := costexplorer.New(session)
+
+	costAndUsageInput := &costexplorer.GetCostAndUsageInput{
+		Granularity: aws.String(filter.Ganularity),
+		TimePeriod: &costexplorer.DateInterval{
+			Start: aws.String(filter.StartDate),
+			End:   aws.String(filter.EndDate),
+		},
+		Metrics: []*string{
+			aws.String("UNBLENDED_COST"),
+		},
+		GroupBy: []*costexplorer.GroupDefinition{
+			{
+				Type: aws.String("TAG"),
+				Key:  aws.String("OwnerList"),
+			},
+		},
+	}
+	costAndUsageOutput, ceErr := ceService.GetCostAndUsage(costAndUsageInput)
+	if ceErr != nil {
+		return nil, ceErr
+	}
+
+	costsAndUsages := []*types.CostAndUsageOutput{}
+	for _, results := range costAndUsageOutput.ResultsByTime {
+		startDate := *results.TimePeriod.Start
+		for _, groups := range results.Groups {
+			for _, metrics := range groups.Metrics {
+				costsAndUsages = append(costsAndUsages, &types.CostAndUsageOutput{
+					Date:   startDate,
+					Key:    *groups.Keys[0],
+					Amount: *metrics.Amount,
+				})
+			}
+		}
+	}
+
+	return costsAndUsages, nil
 }
 
 func (a *AWS) GetResources(filter *types.InfraFilter) ([]*types.InfraResource, error) {

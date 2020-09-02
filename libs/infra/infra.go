@@ -15,6 +15,7 @@ type Provider interface {
 	Init() error
 	GetName() string
 	GetResources(filter *types.InfraFilter) ([]*types.InfraResource, error)
+	GetCostAndUsage(filter *types.CostAndUsageFilter) ([]*types.CostAndUsageOutput, error)
 	UpdateResourceTag(resource *types.InfraResource, tagKey *string, tagValue *string) error
 	UpdateResourceState(resource *types.InfraResource, safe bool, state string) error
 }
@@ -40,6 +41,25 @@ func GetResources(filter *types.InfraFilter) ([]*types.InfraResource, error) {
 	}
 
 	return allResources, nil
+}
+
+func GetCostsAndUsages(filter *types.CostAndUsageFilter) ([]*types.CostAndUsageOutput, error) {
+	allCostsAndUsages := []*types.CostAndUsageOutput{}
+
+	providers, providerErr := getProviders()
+	if providerErr != nil {
+		return nil, providerErr
+	}
+
+	for _, curProvider := range providers {
+		costsAndUsages, curErr := curProvider.GetCostAndUsage(filter)
+		if curErr != nil {
+			return nil, curErr
+		}
+		allCostsAndUsages = append(allCostsAndUsages, costsAndUsages...)
+	}
+
+	return allCostsAndUsages, nil
 }
 
 func getProviders() ([]Provider, error) {
