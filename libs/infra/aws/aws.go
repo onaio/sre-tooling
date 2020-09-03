@@ -2,11 +2,14 @@ package aws
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/onaio/sre-tooling/libs/types"
 )
 
@@ -47,6 +50,58 @@ func (a *AWS) Init() error {
 	}
 
 	return nil
+}
+
+func (a *AWS) GetCostsAndUsages(filter *types.CostAndUsageFilter) (*types.CostAndUsageOutput, error) {
+	session := session.Must(session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	}))
+	ceService := costexplorer.New(session)
+
+	groupDefinitions := []*costexplorer.GroupDefinition{}
+	for groupType, groupKey := range filter.GroupBy {
+		groupDefinitions = append(groupDefinitions, &costexplorer.GroupDefinition{
+			Type: aws.String(groupType),
+			Key:  aws.String(groupKey),
+		})
+	}
+	filterExpression := constructFilterExpression(filter)
+	costAndUsageInput := &costexplorer.GetCostAndUsageInput{
+		Filter:      filterExpression,
+		Granularity: aws.String(filter.Granularity),
+		TimePeriod: &costexplorer.DateInterval{
+			Start: aws.String(filter.StartDate),
+			End:   aws.String(filter.EndDate),
+		},
+		Metrics: []*string{
+			aws.String("UNBLENDED_COST"),
+		},
+		GroupBy: groupDefinitions,
+	}
+	costAndUsageOutput, ceErr := ceService.GetCostAndUsage(costAndUsageInput)
+	if ceErr != nil {
+		return nil, ceErr
+	}
+
+	groupAmounts := make(map[string]float64)
+	for _, resultsByTime := range costAndUsageOutput.ResultsByTime {
+		for _, groups := range resultsByTime.Groups {
+			for _, metrics := range groups.Metrics {
+				if amount, err := strconv.ParseFloat(*metrics.Amount, 64); err == nil {
+					groupAmounts[*groups.Keys[0]] += amount
+				}
+			}
+		}
+	}
+
+	costsAndUsages := &types.CostAndUsageOutput{
+		Provider:  a.GetName(),
+		Groups:    groupAmounts,
+		StartDate: filter.StartDate,
+		EndDate:   filter.EndDate,
+	}
+
+	return costsAndUsages, nil
 }
 
 func (a *AWS) GetResources(filter *types.InfraFilter) ([]*types.InfraResource, error) {
@@ -167,4 +222,59 @@ func considerTags(tags map[string]string, filter *types.InfraFilter) bool {
 		}
 	}
 	return allOk
+}
+
+func constructFilterExpression(filter *types.CostAndUsageFilter) *costexplorer.Expression {
+	filters := []*costexplorer.Expression{}
+
+	if len(filter.ResourceTypes) > 0 {
+		resourceTypeExpression := &costexplorer.Expression{
+			Dimensions: &costexplorer.DimensionValues{
+				Key:    aws.String("SERVICE"),
+				Values: aws.StringSlice(filter.ResourceTypes),
+			},
+		}
+		filters = append(filters, resourceTypeExpression)
+	}
+
+	if len(filter.Regions) > 0 {
+		regionExpression := &costexplorer.Expression{
+			Dimensions: &costexplorer.DimensionValues{
+				Key:    aws.String("REGION"),
+				Values: aws.StringSlice(filter.Regions),
+			},
+		}
+		filters = append(filters, regionExpression)
+	}
+
+	if len(filter.Tags) > 0 {
+		tagsExpressions := []*costexplorer.Expression{}
+		for tagName, tagValue := range filter.Tags {
+			tagsExpressions = append(tagsExpressions, &costexplorer.Expression{
+				Tags: &costexplorer.TagValues{
+					Key:    aws.String(tagName),
+					Values: aws.StringSlice([]string{tagValue}),
+				},
+			})
+		}
+
+		if len(tagsExpressions) == 1 {
+			filters = append(filters, tagsExpressions[0])
+		} else {
+			filters = append(filters, &costexplorer.Expression{
+				And: tagsExpressions,
+			})
+		}
+	}
+
+	filtersLen := len(filters)
+	if filtersLen == 0 {
+		return nil
+	} else if filtersLen == 1 {
+		return filters[0]
+	} else {
+		return &costexplorer.Expression{
+			And: filters,
+		}
+	}
 }
