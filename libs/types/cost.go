@@ -7,6 +7,7 @@ type CostAndUsageOutput struct {
 }
 
 type CostAndUsageFilter struct {
+	Providers  []string
 	Ganularity string
 	StartDate  string
 	EndDate    string

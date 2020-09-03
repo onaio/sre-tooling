@@ -4,6 +4,10 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/onaio/sre-tooling/libs/notification"
+
+	"github.com/onaio/sre-tooling/libs/types"
+
 	"github.com/onaio/sre-tooling/libs/infra"
 
 	"github.com/onaio/sre-tooling/libs/cli"
@@ -51,12 +55,12 @@ func (spike *Spike) Init(helpFlagName string, helpFlagDescription string) {
 	spike.startDateFlag = spike.flagSet.String(
 		"start-date",
 		"",
-		"Start date for retrieving costs. Start date is inclusive. Should be in the format YYYY-MM-DD.",
+		"Start date for retrieving costs. Start date is inclusive. Should be in the format yyyy-MM-dd.",
 	)
 	spike.endDateFlag = spike.flagSet.String(
 		"end-date",
 		"",
-		"End date for retrieving costs. End date is exclusive. Should be in the format YYYY-MM-DD.",
+		"End date for retrieving costs. End date is exclusive. Should be in the format yyyy-MM-dd.",
 	)
 	spike.outputFormatFlag = spike.flagSet.String(
 		"output-format",
@@ -97,4 +101,22 @@ func (spike *Spike) GetHelpFlag() *bool {
 	return spike.helpFlag
 }
 
-func (spike *Spike) Process() {}
+func (spike *Spike) Process() {
+	filter := types.CostAndUsageFilter{}
+	if len(*spike.providerFlag) > 0 {
+		filter.Providers = *spike.providerFlag
+	}
+	filter.Ganularity = *spike.granularityFlag
+	filter.StartDate = *spike.startDateFlag
+	filter.EndDate = *spike.endDateFlag
+
+	allCostsAndUsages, costsAndUsagesErr := infra.GetCostsAndUsages(&filter)
+	if costsAndUsagesErr != nil {
+		notification.SendMessage(costsAndUsagesErr.Error())
+		cli.ExitCommandExecutionError()
+	}
+
+	for _, costAndUsage := range allCostsAndUsages {
+		fmt.Printf("%+v\n", costAndUsage)
+	}
+}
