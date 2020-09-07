@@ -19,3 +19,13 @@ type CostAndUsageFilter struct {
 	EndDate       string
 	GroupBy       map[string]string
 }
+
+type CostSpikeOutput struct {
+	Provider         string
+	GroupKey         string
+	StartDate        string
+	EndDate          string
+	CurPeriodAmount  float64
+	PrevPeriodAmount float64
+	IncreaseRate     float64
+}

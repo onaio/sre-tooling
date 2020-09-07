@@ -3,6 +3,7 @@ package bill
 import (
 	"flag"
 
+	"github.com/onaio/sre-tooling/infra/bill/spike"
 	"github.com/onaio/sre-tooling/infra/bill/validate"
 	"github.com/onaio/sre-tooling/libs/cli"
 )
@@ -20,7 +21,10 @@ func (bill *Bill) Init(helpFlagName string, helpFlagDescription string) {
 	bill.helpFlag = bill.flagSet.Bool(helpFlagName, false, helpFlagDescription)
 	validate := new(validate.Validate)
 	validate.Init(helpFlagName, helpFlagDescription)
-	bill.subCommands = []cli.Command{validate}
+	spike := new(spike.Spike)
+	spike.Init(helpFlagName, helpFlagDescription)
+
+	bill.subCommands = []cli.Command{validate, spike}
 }
 
 func (bill *Bill) GetName() string {
