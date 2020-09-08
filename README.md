@@ -56,6 +56,7 @@ The following environment variables need to be set for the sre-tooling command t
 The following are environment variables that are generally optional but might be required for a sub-command to run as expected:
 
 - `SRE_INFRA_BILL_REQUIRED_TAGS`: Required by the `infra bill validate` sub-command. Comma-separated list of keys that are required for billing infrastructure e.g `"OwnerList,EnvironmentList,EndDate"`.
+- `SRE_INFRA_COST_SPIKE_THRESHOLD`: Required by the `infra bill spike` sub-command. A value between -100 and 100 is required so as to alert when a cost spike surpasses this amount.
 - `SRE_NOTIFICATION_SLACK_WEBHOOK_URL`: Not required. Slack Webhook URL to use to send notifications to Slack. If not set, tool will not try to send notifications to Slack.
 - `SRE_MONITORING_NIFI_FLOW_BULLETIN_URL`: Required by the `monitoring nifi bulletin flow ingest` sub-command. The URL for the NiFi bulletin board endpoint to get flow bulletins. Read about the NiFi flow bulletin board endpoint [here](https://nifi.apache.org/docs/nifi-docs/rest-api/index.html).
 - `SRE_MONITORING_NIFI_FLOW_BULLETIN_SENTRY_DSN`: Required by the `monitoring nifi bulletin flow ingest` sub-command. The Sentry DSN to send bulletins from the flow bulletin endpoint.
