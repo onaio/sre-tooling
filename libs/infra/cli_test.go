@@ -41,7 +41,7 @@ func TestResourceTableRenderHeader(t *testing.T) {
 			&resourceSeparatorFlag,
 			&listFieldsFlag,
 			&defaultFieldValueFlag)
-		table, tableErr := rt.Render(resources)
+		table, tableErr := rt.RenderResources(resources)
 		if tableErr != nil {
 			t.Errorf("Not expecting an error to be returned: %w", tableErr)
 		}
@@ -62,7 +62,7 @@ func TestResourceTableRenderHeader(t *testing.T) {
 			&resourceSeparatorFlag,
 			&listFieldsFlag,
 			&defaultFieldValueFlag)
-		table, tableErr := rt.Render(resources)
+		table, tableErr := rt.RenderResources(resources)
 		if tableErr != nil {
 			t.Errorf("Not expecting an error to be returned: %w", tableErr)
 		}
@@ -114,7 +114,7 @@ func TestResourceTableShowColumns(t *testing.T) {
 			&resourceSeparatorFlag,
 			&listFieldsFlag,
 			&defaultFieldValueFlag)
-		table, tableErr := rt.Render(resources)
+		table, tableErr := rt.RenderResources(resources)
 		if tableErr != nil {
 			t.Errorf("Not expecting an error to be returned: %w", tableErr)
 		}
@@ -142,7 +142,7 @@ func TestResourceTableShowColumns(t *testing.T) {
 			&resourceSeparatorFlag,
 			&listFieldsFlag,
 			&defaultFieldValueFlag)
-		table, tableErr := rt.Render(resources)
+		table, tableErr := rt.RenderResources(resources)
 		if tableErr != nil {
 			t.Errorf("Not expecting an error to be returned: %w", tableErr)
 		}
@@ -169,7 +169,7 @@ func TestResourceTableShowColumns(t *testing.T) {
 			&resourceSeparatorFlag,
 			&listFieldsFlag,
 			&defaultFieldValueFlag)
-		table, tableErr := rt.Render(resources)
+		table, tableErr := rt.RenderResources(resources)
 		if tableErr != nil {
 			t.Errorf("Not expecting an error to be returned: %w", tableErr)
 		}

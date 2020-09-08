@@ -84,7 +84,7 @@ func (query *Query) Process() {
 		query.resourceSeparatorFlag,
 		query.listFieldsFlag,
 		query.defaultFieldValueFlag)
-	output, outputErr := rt.Render(allResources)
+	output, outputErr := rt.RenderResources(allResources)
 	if outputErr != nil {
 		notification.SendMessage(outputErr.Error())
 		cli.ExitCommandExecutionError()

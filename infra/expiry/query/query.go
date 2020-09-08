@@ -186,7 +186,7 @@ func (query *Query) Process() {
 		query.resourceSeparatorFlag,
 		query.listFieldsFlag,
 		query.defaultFieldValueFlag)
-	table, tableErr := rt.Render(expiredResources)
+	table, tableErr := rt.RenderResources(expiredResources)
 	if tableErr != nil {
 		notification.SendMessage(tableErr.Error())
 	}

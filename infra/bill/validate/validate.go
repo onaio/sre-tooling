@@ -119,7 +119,7 @@ func (validate *Validate) Process() {
 		validate.resourceSeparatorFlag,
 		validate.listFieldsFlag,
 		validate.defaultFieldValueFlag)
-	table, tableErr := rt.Render(untaggedResources)
+	table, tableErr := rt.RenderResources(untaggedResources)
 	if tableErr != nil {
 		notification.SendMessage(tableErr.Error())
 	}

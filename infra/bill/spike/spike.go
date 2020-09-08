@@ -140,9 +140,34 @@ func (spike *Spike) Process() {
 		return
 	}
 
-	for _, spikedCost := range spikedCosts {
-		fmt.Printf("%+v\n", spikedCost)
+	rt := new(infra.ResourceTable)
+	rt.Init(
+		spike.showFlag,
+		spike.hideHeadersFlag,
+		spike.csvFlag,
+		spike.fieldSeparatorFlag,
+		spike.resourceSeparatorFlag,
+		spike.listFieldsFlag,
+		spike.defaultFieldValueFlag)
+	table, tableErr := rt.RenderCostSpikes(spikedCosts)
+	if tableErr != nil {
+		notification.SendMessage(tableErr.Error())
 	}
+
+	formattedOutput := ""
+	message := "Cost spikes"
+	switch *spike.outputFormatFlag {
+	case outputFormatMarkdown:
+		formattedOutput = fmt.Sprintf("%s\n```\n%s```", message, table)
+	case outputFormatPlain:
+		formattedOutput = fmt.Sprintf("%s\n%s", message, table)
+	default:
+		notification.SendMessage(fmt.Sprintf("Unrecognized output format '%s'", *spike.outputFormatFlag))
+		cli.ExitCommandInterpretationError()
+	}
+
+	notification.SendMessage(formattedOutput)
+	cli.ExitCommandExecutionError()
 }
 
 func (spike *Spike) GetFiltersFromFlags() *types.CostAndUsageFilter {
