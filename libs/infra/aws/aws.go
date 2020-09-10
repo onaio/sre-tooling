@@ -87,8 +87,13 @@ func (a *AWS) GetCostsAndUsages(filter *types.CostAndUsageFilter) (*types.CostAn
 	for _, resultsByTime := range costAndUsageOutput.ResultsByTime {
 		for _, groups := range resultsByTime.Groups {
 			for _, metrics := range groups.Metrics {
+				// one can only use 2 values of GroupBy
+				key := *groups.Keys[0]
+				if len(groups.Keys) == 2 {
+					key = key + ", " + *groups.Keys[1]
+				}
 				if amount, err := strconv.ParseFloat(*metrics.Amount, 64); err == nil {
-					groupAmounts[*groups.Keys[0]] += amount
+					groupAmounts[key] += amount
 				}
 			}
 		}
