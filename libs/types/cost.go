@@ -1,11 +1,16 @@
 package types
 
-// CostAndUsageOutput defines output to be returned by `GetCostAndUsage`
-type CostAndUsageOutput struct {
-	Provider  string
-	Groups    map[string]float64
+// CostAndUsagePeriod defines period used to calculate costs and usage
+type CostAndUsagePeriod struct {
 	StartDate string
 	EndDate   string
+}
+
+// CostAndUsageOutput defines output to be returned by `GetCostAndUsage`
+type CostAndUsageOutput struct {
+	Provider string
+	Groups   map[string]float64
+	Period   *CostAndUsagePeriod
 }
 
 // CostAndUsageFilter defines parameters used to filter costs
@@ -23,8 +28,8 @@ type CostAndUsageFilter struct {
 type CostSpikeOutput struct {
 	Provider         string
 	GroupKey         string
-	StartDate        string
-	EndDate          string
+	CurPeriod        *CostAndUsagePeriod
+	PrevPeriod       *CostAndUsagePeriod
 	CurPeriodAmount  float64
 	PrevPeriodAmount float64
 	IncreaseRate     float64

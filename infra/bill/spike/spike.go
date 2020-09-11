@@ -124,10 +124,16 @@ func (spike *Spike) Process() {
 			increaseRate := ((curAmount - prevAmount) / curAmount) * 100
 			if increaseRate > threshold {
 				spikedCosts = append(spikedCosts, &types.CostSpikeOutput{
-					Provider:         providerName,
-					GroupKey:         name,
-					StartDate:        curCosts.StartDate,
-					EndDate:          curCosts.EndDate,
+					Provider: providerName,
+					GroupKey: name,
+					CurPeriod: &types.CostAndUsagePeriod{
+						StartDate: curCosts.Period.StartDate,
+						EndDate:   curCosts.Period.EndDate,
+					},
+					PrevPeriod: &types.CostAndUsagePeriod{
+						StartDate: prevCosts.Period.StartDate,
+						EndDate:   prevCosts.Period.EndDate,
+					},
 					CurPeriodAmount:  curAmount,
 					PrevPeriodAmount: prevAmount,
 					IncreaseRate:     increaseRate,

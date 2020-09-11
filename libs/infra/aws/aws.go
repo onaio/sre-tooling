@@ -100,10 +100,12 @@ func (a *AWS) GetCostsAndUsages(filter *types.CostAndUsageFilter) (*types.CostAn
 	}
 
 	costsAndUsages := &types.CostAndUsageOutput{
-		Provider:  a.GetName(),
-		Groups:    groupAmounts,
-		StartDate: filter.StartDate,
-		EndDate:   filter.EndDate,
+		Provider: a.GetName(),
+		Groups:   groupAmounts,
+		Period: &types.CostAndUsagePeriod{
+			StartDate: filter.StartDate,
+			EndDate:   filter.EndDate,
+		},
 	}
 
 	return costsAndUsages, nil

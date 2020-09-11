@@ -75,9 +75,9 @@ func (rt *ResourceTable) RenderCostSpikes(costSpikes []*types.CostSpikeOutput) (
 		data := map[string]string{
 			"Provider":               spike.Provider,
 			"Group Key":              spike.GroupKey,
-			"Start Date":             spike.StartDate,
-			"End Date":               spike.EndDate,
+			"Current Period":         fmt.Sprintf("%s - %s", spike.CurPeriod.StartDate, spike.CurPeriod.EndDate),
 			"Current Period Amount":  fmt.Sprintf("%g", spike.CurPeriodAmount),
+			"Previous Period":        fmt.Sprintf("%s - %s", spike.PrevPeriod.StartDate, spike.PrevPeriod.EndDate),
 			"Previous Period Amount": fmt.Sprintf("%g", spike.PrevPeriodAmount),
 			"Increase Rate":          fmt.Sprintf("%g", spike.IncreaseRate),
 		}
