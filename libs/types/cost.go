@@ -23,6 +23,8 @@ type CostAndUsageFilter struct {
 	StartDate     string
 	EndDate       string
 	GroupBy       map[string]string
+	SortRate      string
+	SortCurAmount string
 }
 
 type CostSpikeOutput struct {

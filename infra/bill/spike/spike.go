@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -33,6 +34,8 @@ type Spike struct {
 	startDateFlag         *string
 	endDateFlag           *string
 	groupByFlag           *flags.StringArray
+	sortRateFlag          *string
+	sortCurAmountFlag     *string
 	showFlag              *flags.StringArray
 	hideHeadersFlag       *bool
 	csvFlag               *bool
@@ -146,6 +149,28 @@ func (spike *Spike) Process() {
 		return
 	}
 
+	// Sort output
+	allowedOrders := map[string]bool{"ASC": true, "DESC": true}
+	if allowedOrders[costAndUsageFilter.SortRate] {
+		sort.Slice(spikedCosts, func(i, j int) bool {
+			if costAndUsageFilter.SortRate == "ASC" {
+				return spikedCosts[i].IncreaseRate < spikedCosts[j].IncreaseRate
+			} else {
+				return spikedCosts[i].IncreaseRate > spikedCosts[j].IncreaseRate
+			}
+		})
+	}
+
+	if allowedOrders[costAndUsageFilter.SortCurAmount] {
+		sort.Slice(spikedCosts, func(i, j int) bool {
+			if costAndUsageFilter.SortCurAmount == "ASC" {
+				return spikedCosts[i].CurPeriodAmount < spikedCosts[j].CurPeriodAmount
+			} else {
+				return spikedCosts[i].CurPeriodAmount > spikedCosts[j].CurPeriodAmount
+			}
+		})
+	}
+
 	rt := new(infra.ResourceTable)
 	rt.Init(
 		spike.showFlag,
@@ -212,6 +237,8 @@ func (spike *Spike) GetFiltersFromFlags() *types.CostAndUsageFilter {
 	filter.Granularity = *spike.granularityFlag
 	filter.StartDate = *spike.startDateFlag
 	filter.EndDate = *spike.endDateFlag
+	filter.SortRate = *spike.sortRateFlag
+	filter.SortCurAmount = *spike.sortCurAmountFlag
 
 	return filter
 }
@@ -240,6 +267,16 @@ func (spike *Spike) AddFilterFlags() {
 	groupFlag := new(flags.StringArray)
 	spike.flagSet.Var(groupFlag, "group-by", "Field to group costs by. Use the format \"groupType:groupValue\". Multiple values can be provided by specifying multiple -group-by")
 	spike.groupByFlag = groupFlag
+	spike.sortRateFlag = spike.flagSet.String(
+		"sort-rate",
+		"",
+		"Sort cost spikes by rate. Value can be ASC or DESC.",
+	)
+	spike.sortCurAmountFlag = spike.flagSet.String(
+		"sort-cur-amount",
+		"",
+		"Sort cost spikes by current amount. Value can be ASC or DESC.",
+	)
 	spike.outputFormatFlag = spike.flagSet.String(
 		"output-format",
 		outputFormatPlain,
