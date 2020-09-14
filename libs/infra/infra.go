@@ -15,11 +15,31 @@ type Provider interface {
 	Init() error
 	GetName() string
 	GetResources(filter *types.InfraFilter) ([]*types.InfraResource, error)
+	GetCostsAndUsages(filter *types.CostAndUsageFilter) (*types.CostAndUsageOutput, error)
 	UpdateResourceTag(resource *types.InfraResource, tagKey *string, tagValue *string) error
 	UpdateResourceState(resource *types.InfraResource, safe bool, state string) error
 }
 
 const tagFlagSeparator = ":"
+
+func GetCostsAndUsages(filter *types.CostAndUsageFilter) (map[string]*types.CostAndUsageOutput, error) {
+	allCostsAndUsages := make(map[string]*types.CostAndUsageOutput)
+
+	providers, providerErr := getProviders()
+	if providerErr != nil {
+		return nil, providerErr
+	}
+
+	for _, provider := range providers {
+		costsAndUsages, err := provider.GetCostsAndUsages(filter)
+		if err != nil {
+			return nil, err
+		}
+		allCostsAndUsages[provider.GetName()] = costsAndUsages
+	}
+
+	return allCostsAndUsages, nil
+}
 
 func GetResources(filter *types.InfraFilter) ([]*types.InfraResource, error) {
 	allResources := []*types.InfraResource{}

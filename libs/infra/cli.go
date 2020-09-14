@@ -5,6 +5,7 @@ package infra
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -54,7 +55,7 @@ func AddResourceTableFlags(flagSet *flag.FlagSet) (*flags.StringArray, *bool, *b
 	return showFlag, hideHeadersFlag, csvFlag, fieldSeparatorFlag, resourceSeparatorFlag, listFieldsFlag, defaultFieldValueFlag
 }
 
-func (rt *ResourceTable) Render(allResources []*types.InfraResource) (string, error) {
+func (rt *ResourceTable) RenderResources(allResources []*types.InfraResource) (string, error) {
 	rows := make([]map[string]string, len(allResources))
 	headers := make(map[string]bool)
 	for rowIndex, curResource := range allResources {
@@ -63,6 +64,30 @@ func (rt *ResourceTable) Render(allResources []*types.InfraResource) (string, er
 		headers, rows = rt.addResourceTableFields(headers, rows, rowIndex, curResource.Data, "data")
 	}
 
+	return rt.Render(headers, rows)
+}
+
+func (rt *ResourceTable) RenderCostSpikes(costSpikes []*types.CostSpikeOutput) (string, error) {
+	rows := make([]map[string]string, len(costSpikes))
+	headers := make(map[string]bool)
+
+	for rowIndex, spike := range costSpikes {
+		data := map[string]string{
+			"Provider":               spike.Provider,
+			"Group Key":              spike.GroupKey,
+			"Current Period":         fmt.Sprintf("%s - %s", spike.CurPeriod.StartDate, spike.CurPeriod.EndDate),
+			"Current Period Amount":  fmt.Sprintf("%g", spike.CurPeriodAmount),
+			"Previous Period":        fmt.Sprintf("%s - %s", spike.PrevPeriod.StartDate, spike.PrevPeriod.EndDate),
+			"Previous Period Amount": fmt.Sprintf("%g", spike.PrevPeriodAmount),
+			"Increase Rate":          fmt.Sprintf("%g", spike.IncreaseRate),
+		}
+		headers, rows = rt.addResourceTableFields(headers, rows, rowIndex, data, "data")
+	}
+
+	return rt.Render(headers, rows)
+}
+
+func (rt *ResourceTable) Render(headers map[string]bool, rows []map[string]string) (string, error) {
 	output := ""
 	displayedHeaders := []string{}
 	if len(*rt.showFlag) > 0 {
