@@ -4,6 +4,8 @@ import (
 	"flag"
 	"os"
 
+	"github.com/onaio/sre-tooling/audit"
+
 	"github.com/onaio/sre-tooling/infra"
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/monitoring"
@@ -21,7 +23,9 @@ func (sreTooling *SRETooling) Init(helpFlagName string, helpFlagDescription stri
 	infra.Init(helpFlagName, helpFlagDescription)
 	monitoring := new(monitoring.Monitoring)
 	monitoring.Init(helpFlagName, helpFlagDescription)
-	sreTooling.subCommands = []cli.Command{infra, monitoring}
+	audit := new(audit.Audit)
+	audit.Init(helpFlagName, helpFlagDescription)
+	sreTooling.subCommands = []cli.Command{infra, monitoring, audit}
 	flag.Parse()
 }
 
