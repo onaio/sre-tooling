@@ -3,24 +3,30 @@ package audit
 import (
 	"flag"
 
-	"github.com/onaio/sre-tooling/audit/ssl"
+	"github.com/onaio/sre-tooling/libs/notification"
+
+	auditlib "github.com/onaio/sre-tooling/libs/audit"
 	"github.com/onaio/sre-tooling/libs/cli"
 )
 
 const name string = "audit"
 
 type Audit struct {
-	helpFlag    *bool
-	flagSet     *flag.FlagSet
-	subCommands []cli.Command
+	helpFlag      *bool
+	flagSet       *flag.FlagSet
+	auditFileFlag *string
+	subCommands   []cli.Command
 }
 
 func (audit *Audit) Init(helpFlagName string, helpFlagDescription string) {
 	audit.flagSet = flag.NewFlagSet(audit.GetName(), flag.ExitOnError)
 	audit.helpFlag = audit.flagSet.Bool(helpFlagName, false, helpFlagDescription)
-	ssl := new(ssl.SSL)
-	ssl.Init(helpFlagName, helpFlagDescription)
-	audit.subCommands = []cli.Command{ssl}
+	audit.auditFileFlag = audit.flagSet.String(
+		"audit-file",
+		"",
+		"Absolute path to yaml file containing audit tests to run",
+	)
+	audit.subCommands = []cli.Command{}
 }
 
 func (audit *Audit) GetName() string {
@@ -28,7 +34,7 @@ func (audit *Audit) GetName() string {
 }
 
 func (audit *Audit) GetDescription() string {
-	return "Audit specific commands"
+	return "Run audit tests"
 }
 
 func (audit *Audit) GetFlagSet() *flag.FlagSet {
@@ -43,4 +49,12 @@ func (audit *Audit) GetHelpFlag() *bool {
 	return audit.helpFlag
 }
 
-func (audit *Audit) Process() {}
+func (audit *Audit) Process() {
+	// validate auditFile is provided
+	if len(*audit.auditFileFlag) == 0 {
+		notification.SendMessage("Audit file path is required")
+		cli.ExitCommandInterpretationError()
+	}
+
+	auditlib.Run(*audit.auditFileFlag)
+}
