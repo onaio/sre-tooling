@@ -2,6 +2,7 @@ package audit
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/onaio/sre-tooling/libs/notification"
 
@@ -56,5 +57,13 @@ func (audit *Audit) Process() {
 		cli.ExitCommandInterpretationError()
 	}
 
-	auditlib.Run(*audit.auditFileFlag)
+	auditResults, err := auditlib.Run(*audit.auditFileFlag)
+	if err != nil {
+		notification.SendMessage(err.Error())
+		cli.ExitCommandExecutionError()
+	}
+
+	for _, res := range auditResults {
+		fmt.Printf("[%s] %s\n", res.Status, res.StatusMessage)
+	}
 }

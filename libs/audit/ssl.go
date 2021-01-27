@@ -13,42 +13,18 @@ const sreToolingVersion string = ""
 // DOCS: https://github.com/ssllabs/ssllabs-scan/blob/master/ssllabs-api-docs-v3.md
 
 type Host struct {
-	Host           string `mapstructure:"host"`
-	Public         bool   `mapstructure:"public"`
-	StartNew       bool   `mapstructure:"start_new"`
-	FromCache      bool   `mapstructure:"from_cache"`
-	MaxAge         int    `mapstructure:"max_age"`
-	IgnoreMismatch bool   `mapstructure:"ignore_mismatch"`
-	Threshold      string `mapstructure:"threshold"`
+	Host           string               `mapstructure:"host"`
+	Public         bool                 `mapstructure:"public"`
+	StartNew       bool                 `mapstructure:"start_new"`
+	FromCache      bool                 `mapstructure:"from_cache"`
+	MaxAge         int                  `mapstructure:"max_age"`
+	IgnoreMismatch bool                 `mapstructure:"ignore_mismatch"`
+	Threshold      string               `mapstructure:"threshold"`
+	ScanInfo       *sslscan.AnalyzeInfo // scan information
+	ScanInfoError  error                // contains an error if an error occured while scanning host
 }
 
-type SSLAudit struct {
-	Hosts []*Host `mapstructure:"hosts"`
-}
-
-func (ssl *SSLAudit) Scan() error {
-	api, err := sslscan.NewAPI(sreToolingName, sreToolingVersion)
-	if err != nil {
-		return err
-	}
-
-	api.RequestTimeout = 5 * time.Second
-
-	for _, host := range ssl.Hosts {
-		_, err := scanHost(api, host)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (ssl *SSLAudit) Results() []*AuditResult {
-	return nil
-}
-
-func scanHost(api *sslscan.API, host *Host) (*sslscan.AnalyzeInfo, error) {
+func (host *Host) Scan(api *sslscan.API) {
 	params := sslscan.AnalyzeParams{
 		Public:         host.Public,
 		StartNew:       host.StartNew,
@@ -59,7 +35,8 @@ func scanHost(api *sslscan.API, host *Host) (*sslscan.AnalyzeInfo, error) {
 
 	progress, err := api.Analyze(host.Host, params)
 	if err != nil {
-		return nil, err
+		host.ScanInfoError = err
+		return
 	}
 
 	var info *sslscan.AnalyzeInfo
@@ -74,7 +51,8 @@ func scanHost(api *sslscan.API, host *Host) (*sslscan.AnalyzeInfo, error) {
 		}
 
 		if info.Status == sslscan.STATUS_ERROR {
-			return info, fmt.Errorf(info.StatusMessage)
+			host.ScanInfoError = fmt.Errorf(info.StatusMessage)
+			break
 		}
 
 		if info.Status == sslscan.STATUS_READY {
@@ -82,9 +60,74 @@ func scanHost(api *sslscan.API, host *Host) (*sslscan.AnalyzeInfo, error) {
 		}
 
 		if time.Since(lastSuccess) > 30*time.Second {
-			return info, fmt.Errorf("Can't get result from API more than 30 sec")
+			host.ScanInfoError = fmt.Errorf("Can't get result from API more than 30 sec")
+			break
 		}
 	}
 
-	return info, nil
+	host.ScanInfo = info
+	return
+}
+
+func (host *Host) Result() []*AuditResult {
+	var results []*AuditResult
+
+	if host.ScanInfoError != nil {
+		res := &AuditResult{
+			Status:        Error,
+			StatusMessage: host.ScanInfoError.Error(),
+		}
+		results = append(results, res)
+	} else {
+		for _, endpoint := range host.ScanInfo.Endpoints {
+			if CompareGrades(endpoint.Grade, host.Threshold) {
+				statusMsg := fmt.Sprintf(
+					"%s (%s) with Grade %s is below threshold Grade %s",
+					host.ScanInfo.Host, endpoint.IPAdress, endpoint.Grade, host.Threshold,
+				)
+				res := &AuditResult{
+					Status:        Fail,
+					StatusMessage: statusMsg,
+				}
+				results = append(results, res)
+			} else {
+				statusMsg := fmt.Sprintf(
+					"%s (%s) has Grade %s",
+					host.ScanInfo.Host, endpoint.IPAdress, endpoint.Grade,
+				)
+				res := &AuditResult{
+					Status:        Pass,
+					StatusMessage: statusMsg,
+				}
+				results = append(results, res)
+			}
+		}
+	}
+
+	return results
+}
+
+type SSLAudit struct {
+	Hosts []*Host `mapstructure:"hosts"`
+}
+
+func (ssl *SSLAudit) Scan() ([]*AuditResult, error) {
+	api, err := sslscan.NewAPI(sreToolingName, sreToolingVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	api.RequestTimeout = 5 * time.Second
+
+	var sslAuditResults []*AuditResult
+
+	for _, host := range ssl.Hosts {
+		host.Scan(api)
+
+		results := host.Result()
+
+		sslAuditResults = append(sslAuditResults, results...)
+	}
+
+	return sslAuditResults, nil
 }
