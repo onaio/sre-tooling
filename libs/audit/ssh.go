@@ -9,6 +9,7 @@ type Server struct {
 	Port         int    `mapstructure:"port"`
 	AuditType    string `mapstructure:"audit_type"`
 	PolicyName   string `mapstructure:"policy_name"`
+	Threshold    string `mapstructure:"threshold"`
 }
 
 type SSHAudit struct {

@@ -19,6 +19,7 @@ type Host struct {
 	FromCache      bool   `mapstructure:"from_cache"`
 	MaxAge         int    `mapstructure:"max_age"`
 	IgnoreMismatch bool   `mapstructure:"ignore_mismatch"`
+	Threshold      string `mapstructure:"threshold"`
 }
 
 type SSLAudit struct {
