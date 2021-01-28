@@ -22,4 +22,9 @@ func TestCompareGrades(t *testing.T) {
 	if !gradeTest4 {
 		t.Errorf("CompareGrades(\"B+\", \"A-\") = %t; want true", gradeTest4)
 	}
+
+	gradeTest5 := CompareGrades("a", "A")
+	if gradeTest5 {
+		t.Errorf("CompareGrades(\"a\", \"A\") = %t; want false", gradeTest5)
+	}
 }

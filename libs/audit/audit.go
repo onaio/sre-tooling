@@ -2,6 +2,7 @@ package audit
 
 import (
 	"io/ioutil"
+	"strings"
 
 	"github.com/mitchellh/mapstructure"
 
@@ -48,7 +49,7 @@ func CompareGrades(grade1, grade2 string) bool {
 func gradeValue(grade string) float64 {
 	value := 0.0
 
-	for _, r := range []rune(grade) {
+	for _, r := range []rune(strings.ToLower(grade)) {
 		if string(r) == "+" {
 			// plus grades rank higher, subtract
 			value -= 0.3
