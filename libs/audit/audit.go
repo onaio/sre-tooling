@@ -3,6 +3,7 @@ package audit
 import (
 	"io/ioutil"
 	"strings"
+	"sync"
 
 	"github.com/mitchellh/mapstructure"
 
@@ -25,6 +26,8 @@ type AuditResult struct {
 	Status        Status
 	StatusMessage string
 }
+
+type AuditScanHandler func(results []*AuditResult, err error)
 
 func (s Status) String() string {
 	return [...]string{"PASS", "FAIL", "ERROR"}[s]
@@ -75,6 +78,11 @@ func EnabledAudits() map[string]Audit {
 }
 
 func Run(inputFile string) ([]*AuditResult, error) {
+	var auditResults []*AuditResult
+	var auditWG sync.WaitGroup
+	var finalErr error
+	var mutex sync.Mutex
+
 	auditFile, err := ioutil.ReadFile(inputFile)
 	if err != nil {
 		return nil, err
@@ -86,8 +94,6 @@ func Run(inputFile string) ([]*AuditResult, error) {
 		return nil, err
 	}
 
-	var auditResults []*AuditResult
-
 	enabledAudits := EnabledAudits()
 	for name, audit := range enabledAudits {
 		if _, prs := auditMap[name]; prs {
@@ -96,14 +102,30 @@ func Run(inputFile string) ([]*AuditResult, error) {
 				return nil, err
 			}
 
-			res, err := audit.Scan()
-			if err != nil {
-				return nil, err
+			handler := func(results []*AuditResult, err error) {
+				mutex.Lock()
+				defer mutex.Unlock()
+
+				auditResults = append(auditResults, results...)
+
+				if err != nil {
+					finalErr = err
+				}
 			}
 
-			auditResults = append(auditResults, res...)
+			auditWG.Add(1)
+
+			go func(audit Audit, handler AuditScanHandler) {
+				defer auditWG.Done()
+
+				res, err := audit.Scan()
+				handler(res, err)
+
+			}(audit, handler)
 		}
 	}
 
-	return auditResults, nil
+	auditWG.Wait()
+
+	return auditResults, finalErr
 }
