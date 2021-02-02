@@ -2,6 +2,7 @@ package audit
 
 import (
 	"fmt"
+	"sync"
 
 	sshaudit "github.com/onaio/sre-tooling/libs/ssh_audit"
 )
@@ -110,20 +111,35 @@ type SSHAudit struct {
 }
 
 func (ssh *SSHAudit) Scan() ([]*AuditResult, error) {
+	var sshAuditResults []*AuditResult
+	var sshWG sync.WaitGroup
+	var mutex sync.Mutex
+
 	api, err := sshaudit.NewAPI()
 	if err != nil {
 		return nil, err
 	}
 
-	var sshAuditResults []*AuditResult
-
 	for _, server := range ssh.Servers {
-		server.Scan(api)
+		handler := func(results []*AuditResult, err error) {
+			mutex.Lock()
+			defer mutex.Unlock()
 
-		results := server.Result()
+			sshAuditResults = append(sshAuditResults, results...)
+		}
 
-		sshAuditResults = append(sshAuditResults, results...)
+		sshWG.Add(1)
+
+		go func(server *Server, handler AuditScanHandler) {
+			defer sshWG.Done()
+
+			server.Scan(api)
+			results := server.Result()
+			handler(results, nil)
+		}(server, handler)
 	}
+
+	sshWG.Wait()
 
 	return sshAuditResults, nil
 }
