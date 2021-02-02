@@ -2,6 +2,7 @@ package audit
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"pkg.re/essentialkaos/sslscan.v13"
@@ -112,6 +113,10 @@ type SSLAudit struct {
 }
 
 func (ssl *SSLAudit) Scan() ([]*AuditResult, error) {
+	var sslAuditResults []*AuditResult
+	var sslWG sync.WaitGroup
+	var mutex sync.Mutex
+
 	api, err := sslscan.NewAPI(sreToolingName, sreToolingVersion)
 	if err != nil {
 		return nil, err
@@ -119,15 +124,26 @@ func (ssl *SSLAudit) Scan() ([]*AuditResult, error) {
 
 	api.RequestTimeout = 5 * time.Second
 
-	var sslAuditResults []*AuditResult
-
 	for _, host := range ssl.Hosts {
-		host.Scan(api)
+		handler := func(results []*AuditResult, err error) {
+			mutex.Lock()
+			defer mutex.Unlock()
 
-		results := host.Result()
+			sslAuditResults = append(sslAuditResults, results...)
+		}
 
-		sslAuditResults = append(sslAuditResults, results...)
+		sslWG.Add(1)
+
+		go func(host *Host, handler AuditScanHandler) {
+			defer sslWG.Done()
+
+			host.Scan(api)
+			results := host.Result()
+			handler(results, nil)
+		}(host, handler)
 	}
+
+	sslWG.Wait()
 
 	return sslAuditResults, nil
 }
