@@ -48,6 +48,11 @@ func (host *Host) Scan(api *sslscan.API) {
 	for range time.NewTicker(5 * time.Second).C {
 		info, err = progress.Info(false, false)
 
+		if err != nil {
+			host.ScanInfoError = err
+			break
+		}
+
 		if info != nil && err == nil {
 			// Update lastSuccess if we get result from API and there is no error
 			lastSuccess = time.Now()
