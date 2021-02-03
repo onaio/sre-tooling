@@ -7,6 +7,8 @@ import (
 	sshaudit "github.com/onaio/sre-tooling/libs/ssh_audit"
 )
 
+const sshAuditName string = "SSH"
+
 type AuditType int
 
 const (
@@ -49,6 +51,7 @@ func (server *Server) Result() []*AuditResult {
 
 	if server.ScanInfoError != nil {
 		res := &AuditResult{
+			Type:          sshAuditName,
 			Status:        Error,
 			StatusMessage: server.ScanInfoError.Error(),
 		}
@@ -63,6 +66,7 @@ func (server *Server) Result() []*AuditResult {
 					info.TargetServer, info.TargetServerIP, info.Grade, server.Threshold,
 				)
 				res := &AuditResult{
+					Type:          sshAuditName,
 					Status:        Fail,
 					StatusMessage: statusMsg,
 				}
@@ -73,6 +77,7 @@ func (server *Server) Result() []*AuditResult {
 					info.TargetServer, info.TargetServerIP, info.Grade,
 				)
 				res := &AuditResult{
+					Type:          sshAuditName,
 					Status:        Pass,
 					StatusMessage: statusMsg,
 				}
@@ -86,6 +91,7 @@ func (server *Server) Result() []*AuditResult {
 					"%s (%s) policy passed", info.TargetServer, info.TargetServerIP,
 				)
 				res := &AuditResult{
+					Type:          sshAuditName,
 					Status:        Pass,
 					StatusMessage: statusMsg,
 				}
@@ -95,6 +101,7 @@ func (server *Server) Result() []*AuditResult {
 					"%s (%s) policy failed", info.TargetServer, info.TargetServerIP,
 				)
 				res := &AuditResult{
+					Type:          sshAuditName,
 					Status:        Fail,
 					StatusMessage: statusMsg,
 				}

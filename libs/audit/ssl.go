@@ -11,6 +11,8 @@ import (
 const sreToolingName string = "onaio/sre-tooling"
 const sreToolingVersion string = ""
 
+const sslAuditName string = "SSL"
+
 // DOCS: https://github.com/ssllabs/ssllabs-scan/blob/master/ssllabs-api-docs-v3.md
 
 type Host struct {
@@ -75,6 +77,7 @@ func (host *Host) Result() []*AuditResult {
 
 	if host.ScanInfoError != nil {
 		res := &AuditResult{
+			Type:          sslAuditName,
 			Status:        Error,
 			StatusMessage: host.ScanInfoError.Error(),
 		}
@@ -87,6 +90,7 @@ func (host *Host) Result() []*AuditResult {
 					host.ScanInfo.Host, endpoint.IPAdress, endpoint.Grade, host.Threshold,
 				)
 				res := &AuditResult{
+					Type:          sslAuditName,
 					Status:        Fail,
 					StatusMessage: statusMsg,
 				}
@@ -97,6 +101,7 @@ func (host *Host) Result() []*AuditResult {
 					host.ScanInfo.Host, endpoint.IPAdress, endpoint.Grade,
 				)
 				res := &AuditResult{
+					Type:          sslAuditName,
 					Status:        Pass,
 					StatusMessage: statusMsg,
 				}

@@ -64,6 +64,6 @@ func (audit *Audit) Process() {
 	}
 
 	for _, res := range auditResults {
-		fmt.Printf("[%s] %s\n", res.Status, res.StatusMessage)
+		fmt.Printf("[%s] [%s] %s\n", res.Type, res.Status, res.StatusMessage)
 	}
 }

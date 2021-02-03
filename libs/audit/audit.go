@@ -23,8 +23,9 @@ type Audit interface {
 }
 
 type AuditResult struct {
-	Status        Status
-	StatusMessage string
+	Type          string // type of audit e.g. "SSL", "SSH"
+	Status        Status // status of the audit e.g "PASS", "ERROR", "FAIL"
+	StatusMessage string // message of the audit
 }
 
 type AuditScanHandler func(results []*AuditResult, err error)
