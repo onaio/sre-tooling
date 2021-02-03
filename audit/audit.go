@@ -63,7 +63,17 @@ func (audit *Audit) Process() {
 		cli.ExitCommandExecutionError()
 	}
 
+	auditPassed := true
+
 	for _, res := range auditResults {
+		if res.Status != auditlib.Pass {
+			auditPassed = false
+		}
+
 		fmt.Printf("[%s] [%s] %s\n", res.Type, res.Status, res.StatusMessage)
+	}
+
+	if !auditPassed {
+		cli.ExitCommandExecutionError()
 	}
 }
