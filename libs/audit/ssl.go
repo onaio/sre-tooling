@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mitchellh/mapstructure"
 	"pkg.re/essentialkaos/sslscan.v13"
 )
 
@@ -119,7 +120,12 @@ func (host *Host) Result() []*AuditResult {
 }
 
 type SSLAudit struct {
-	Hosts []*Host `mapstructure:"hosts"`
+	Hosts []*Host
+}
+
+func (ssl *SSLAudit) Load(input interface{}) error {
+	err := mapstructure.Decode(input, &ssl.Hosts)
+	return err
 }
 
 func (ssl *SSLAudit) Scan() ([]*AuditResult, error) {

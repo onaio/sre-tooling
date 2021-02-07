@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/onaio/sre-tooling/libs/infra"
 	sshaudit "github.com/onaio/sre-tooling/libs/ssh_audit"
 	"github.com/onaio/sre-tooling/libs/types"
@@ -214,7 +215,12 @@ func (tg *TargetGroup) hostDiscovery() ([]*Target, error) {
 }
 
 type SSHAudit struct {
-	Servers []*TargetGroup `mapstructure:"servers"`
+	TargetGroups []*TargetGroup
+}
+
+func (ssh *SSHAudit) Load(input interface{}) error {
+	err := mapstructure.Decode(input, &ssh.TargetGroups)
+	return err
 }
 
 func (ssh *SSHAudit) Scan() ([]*AuditResult, error) {
@@ -228,7 +234,7 @@ func (ssh *SSHAudit) Scan() ([]*AuditResult, error) {
 		return nil, err
 	}
 
-	for _, targetGroup := range ssh.Servers {
+	for _, targetGroup := range ssh.TargetGroups {
 		handler := func(results []*AuditResult, err error) {
 			mutex.Lock()
 			defer mutex.Unlock()

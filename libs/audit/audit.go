@@ -5,8 +5,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mitchellh/mapstructure"
-
 	"gopkg.in/yaml.v2"
 )
 
@@ -19,6 +17,7 @@ const (
 )
 
 type Audit interface {
+	Load(input interface{}) error
 	Scan() ([]*AuditResult, error)
 }
 
@@ -71,9 +70,8 @@ func gradeValue(grade string) float64 {
 
 func EnabledAudits() map[string]Audit {
 	m := make(map[string]Audit)
-
-	m["ssl_audit"] = &SSLAudit{}
-	m["ssh_audit"] = &SSHAudit{}
+	m["ssl"] = &SSLAudit{}
+	m["ssh"] = &SSHAudit{}
 
 	return m
 }
@@ -98,7 +96,7 @@ func Run(inputFile string) ([]*AuditResult, error) {
 	enabledAudits := EnabledAudits()
 	for name, audit := range enabledAudits {
 		if _, prs := auditMap[name]; prs {
-			err = mapstructure.Decode(auditMap[name], audit)
+			err = audit.Load(auditMap[name])
 			if err != nil {
 				return nil, err
 			}
