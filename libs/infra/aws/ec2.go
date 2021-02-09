@@ -89,7 +89,9 @@ func (e *EC2) getEC2InstancesInRegion(wg *sync.WaitGroup, region string, filter 
 	}))
 
 	ec2Service := ec2.New(session)
-	ec2Instances, ec2InstancesErr := ec2Service.DescribeInstances(e.constructEC2DescribeInstancesInput(filter))
+	ec2Instances, ec2InstancesErr := ec2Service.DescribeInstances(
+		e.constructEC2DescribeInstancesInput(filter),
+	)
 
 	if ec2InstancesErr != nil {
 		finalErr = ec2InstancesErr
@@ -144,8 +146,8 @@ func (e *EC2) constructEC2DescribeInstancesInput(filter *types.InfraFilter) *ec2
 	for curTagKey, curTagValue := range filter.Tags {
 		filterName := "tag:" + curTagKey
 		filters = append(filters, &ec2.Filter{
-			Name:   &filterName,
-			Values: []*string{&curTagValue},
+			Name:   aws.String(filterName),
+			Values: aws.StringSlice([]string{curTagValue}),
 		})
 	}
 
