@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+
+	"github.com/onaio/sre-tooling/libs/version"
 )
 
 const baseURL = "https://www.sshaudit.com"
@@ -171,7 +173,7 @@ func NewAPI() (*API, error) {
 // getUserAgent generate user-agent string for client
 func getUserAgent() string {
 	return fmt.Sprintf(
-		"onaio/sre-tooling (go; %s; %s-%s)",
-		runtime.Version(), runtime.GOARCH, runtime.GOOS,
+		"onaio/sre-tooling - %s (go; %s; %s-%s)",
+		version.Current, runtime.Version(), runtime.GOARCH, runtime.GOOS,
 	)
 }

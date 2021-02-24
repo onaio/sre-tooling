@@ -9,6 +9,7 @@ import (
 	"github.com/onaio/sre-tooling/infra"
 	"github.com/onaio/sre-tooling/libs/cli"
 	"github.com/onaio/sre-tooling/monitoring"
+	versionSubCommand "github.com/onaio/sre-tooling/version"
 )
 
 type SRETooling struct {
@@ -21,11 +22,17 @@ func (sreTooling *SRETooling) Init(helpFlagName string, helpFlagDescription stri
 
 	infra := new(infra.Infra)
 	infra.Init(helpFlagName, helpFlagDescription)
+
 	monitoring := new(monitoring.Monitoring)
 	monitoring.Init(helpFlagName, helpFlagDescription)
+
 	audit := new(audit.Audit)
 	audit.Init(helpFlagName, helpFlagDescription)
-	sreTooling.subCommands = []cli.Command{infra, monitoring, audit}
+
+	version := new(versionSubCommand.Version)
+	version.Init(helpFlagName, helpFlagDescription)
+
+	sreTooling.subCommands = []cli.Command{infra, monitoring, audit, version}
 	flag.Parse()
 }
 

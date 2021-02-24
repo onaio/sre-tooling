@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/onaio/sre-tooling/libs/version"
 	"pkg.re/essentialkaos/sslscan.v13"
 )
 
 const sreToolingName string = "onaio/sre-tooling"
-const sreToolingVersion string = ""
 
 const sslAuditName string = "SSL"
 
@@ -133,7 +133,7 @@ func (ssl *SSLAudit) Scan() ([]*AuditResult, error) {
 	var sslWG sync.WaitGroup
 	var mutex sync.Mutex
 
-	api, err := sslscan.NewAPI(sreToolingName, sreToolingVersion)
+	api, err := sslscan.NewAPI(sreToolingName, version.Current)
 	if err != nil {
 		return nil, err
 	}
