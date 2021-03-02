@@ -118,6 +118,7 @@ func EnabledAudits() map[string]Audit {
 	m := make(map[string]Audit)
 	m["ssl"] = &SSLAudit{}
 	m["ssh"] = &SSHAudit{}
+	m["port"] = &PortScan{}
 
 	return m
 }
