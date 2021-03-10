@@ -2,36 +2,54 @@ package audit
 
 import "testing"
 
-func TestPortsEqual(t *testing.T) {
-	equalPortsTest1 := portsEqual([]uint16{22, 80, 443}, []uint16{80, 443, 22})
-	if !equalPortsTest1 {
+func TestComparePorts(t *testing.T) {
+	userPorts := []string{"tcp/22", "tcp/80", "tcp/443"}
+	nmapPorts := []string{"tcp/443", "tcp/80", "tcp/22"}
+	isSimilar := comparePorts(userPorts, nmapPorts)
+	if !isSimilar {
 		t.Errorf(
-			"portsEqual(([]uint16{22, 80, 443}, []uint16{80, 443, 22}) = %t; want true",
-			equalPortsTest1,
+			"comparePorts(%v, %v) = %t; want true",
+			userPorts, nmapPorts, isSimilar,
 		)
 	}
 
-	equalPortsTest2 := portsEqual([]uint16{22}, []uint16{80})
-	if equalPortsTest2 {
+	userPorts = []string{"tcp/22", "tcp/80", "tcp/443", "udp/123"}
+	nmapPorts = []string{"tcp/443", "tcp/80", "tcp/22"}
+	isSimilar = comparePorts(userPorts, nmapPorts)
+	if isSimilar {
 		t.Errorf(
-			"portsEqual([]uint16{22}, []uint16{80}) = %t; want false",
-			equalPortsTest2,
+			"comparePorts(%v, %v) = %t; want false",
+			userPorts, nmapPorts, isSimilar,
 		)
 	}
 
-	equalPortsTest3 := portsEqual([]uint16{22}, []uint16{80, 22})
-	if equalPortsTest3 {
+	userPorts = []string{"tcp/22", "tcp/80", "tcp/443"}
+	nmapPorts = []string{"tcp/443", "tcp/80", "tcp/22", "udp/123"}
+	isSimilar = comparePorts(userPorts, nmapPorts)
+	if isSimilar {
 		t.Errorf(
-			"portsEqual([]uint16{22}, []uint16{80, 22}) = %t; want false",
-			equalPortsTest3,
+			"comparePorts(%v, %v) = %t; want false",
+			userPorts, nmapPorts, isSimilar,
 		)
 	}
 
-	equalPortsTest4 := portsEqual([]uint16{}, []uint16{})
-	if !equalPortsTest4 {
+	userPorts = []string{"tcp/22", "tcp/80", "tcp/443", "udp/6000-6002"}
+	nmapPorts = []string{"tcp/443", "tcp/80", "tcp/22", "udp/6000", "udp/6001", "udp/6002"}
+	isSimilar = comparePorts(userPorts, nmapPorts)
+	if !isSimilar {
 		t.Errorf(
-			"portsEqual(([]uint16{}, []uint16{}) = %t; want true",
-			equalPortsTest4,
+			"comparePorts(%v, %v) = %t; want true",
+			userPorts, nmapPorts, isSimilar,
+		)
+	}
+
+	userPorts = []string{"tcp/22", "tcp/80", "tcp/443", "udp/6000-6002"}
+	nmapPorts = []string{"tcp/443", "tcp/80", "tcp/22", "udp/6000", "udp/6002"}
+	isSimilar = comparePorts(userPorts, nmapPorts)
+	if isSimilar {
+		t.Errorf(
+			"comparePorts(%v, %v) = %t; want false",
+			userPorts, nmapPorts, isSimilar,
 		)
 	}
 }

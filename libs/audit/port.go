@@ -3,7 +3,8 @@ package audit
 import (
 	"context"
 	"fmt"
-	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,19 +14,55 @@ import (
 
 const portAuditName string = "PORT"
 
-// portsEqual tells whether a and b contain the same elements
-func portsEqual(a, b []uint16) bool {
-	sort.Slice(a, func(i, j int) bool { return a[i] < a[j] })
-	sort.Slice(b, func(i, j int) bool { return b[i] < b[j] })
-
-	if len(a) != len(b) {
-		return false
+// comparePorts compares if user defined ports match open/closed nmap ports
+//
+// comparePorts(
+// 	[]string{"tcp/22", "tcp/80", "tcp/443"},
+// 	[]string{"tcp/22", "tcp/80", "tcp/443"},
+// ) == true
+func comparePorts(userPorts, nmapPorts []string) bool {
+	// convert nmapPorts to a map
+	nmapPortsSet := make(map[string]bool)
+	for _, p := range nmapPorts {
+		nmapPortsSet[p] = true
 	}
 
-	for idx, value := range a {
-		if value != b[idx] {
-			return false
+	// check if user defined ports are present in nmap discovered ports
+	for _, port := range userPorts {
+		// check if port has "-" to denote a range
+		if strings.Contains(port, "-") {
+			a := strings.FieldsFunc(port, func(r rune) bool {
+				return r == '/' || r == '-'
+			})
+			protocol := a[0]
+			start, _ := strconv.Atoi(a[1])
+			end, _ := strconv.Atoi(a[2])
+
+			for i := start; i < end+1; i++ {
+				portToLookup := fmt.Sprintf("%s/%d", protocol, i)
+				_, found := nmapPortsSet[portToLookup]
+				if found {
+					// delete port from nmapPortsSet. At the end of the range, if there are
+					// ports left in nmapPortsSet then the two ports don't match
+					delete(nmapPortsSet, portToLookup)
+				} else {
+					return false
+				}
+			}
+		} else {
+			_, found := nmapPortsSet[port]
+			if found {
+				// delete port from nmapPortsSet. At the end of the range, if there are
+				// ports left in nmapPortsSet then the two ports don't match
+				delete(nmapPortsSet, port)
+			} else {
+				return false
+			}
 		}
+	}
+
+	if len(nmapPortsSet) > 0 {
+		return false
 	}
 
 	return true
@@ -79,8 +116,8 @@ func (t *PortTarget) Scan() {
 // Result constructs results output for a given port scan
 func (t *PortTarget) Result() []*AuditResult {
 	var results []*AuditResult
-	var openPorts []uint16
-	var closedPorts []uint16
+	var openPorts []string
+	var closedPorts []string
 
 	if t.ScanInfoError != nil {
 		res := &AuditResult{
@@ -94,17 +131,18 @@ func (t *PortTarget) Result() []*AuditResult {
 
 	for _, host := range t.ScanInfo.Hosts {
 		for _, port := range host.Ports {
+			protocolPort := fmt.Sprintf("%s/%d", port.Protocol, port.ID)
 			switch port.State.State {
 			case string(nmap.Open):
-				openPorts = append(openPorts, port.ID)
+				openPorts = append(openPorts, protocolPort)
 			case string(nmap.Closed):
-				closedPorts = append(closedPorts, port.ID)
+				closedPorts = append(closedPorts, protocolPort)
 			}
 		}
 	}
 
 	if len(t.Group.AllowList) > 0 {
-		if portsEqual(t.Group.AllowList, openPorts) {
+		if comparePorts(t.Group.AllowList, openPorts) {
 			statusMsg := fmt.Sprintf(
 				"%s has all allowed ports %v open", t.Host, t.Group.AllowList,
 			)
@@ -127,7 +165,7 @@ func (t *PortTarget) Result() []*AuditResult {
 			results = append(results, res)
 		}
 	} else if len(t.Group.BlockList) > 0 {
-		if portsEqual(t.Group.BlockList, closedPorts) {
+		if comparePorts(t.Group.BlockList, closedPorts) {
 			statusMsg := fmt.Sprintf(
 				"%s has all blocked ports %v closed", t.Host, t.Group.BlockList,
 			)
@@ -166,8 +204,8 @@ func (t *PortTarget) Result() []*AuditResult {
 
 type PortTargetGroup struct {
 	Timeout   string     `mapstructure:"timeout"`
-	AllowList []uint16   `mapstructure:"allowlist"`
-	BlockList []uint16   `mapstructure:"blocklist"`
+	AllowList []string   `mapstructure:"allowlist"`
+	BlockList []string   `mapstructure:"blocklist"`
 	Discovery *Discovery `mapstructure:"discovery"`
 }
 
