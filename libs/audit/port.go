@@ -10,9 +10,12 @@ import (
 
 	"github.com/Ullaakut/nmap/v2"
 	"github.com/mitchellh/mapstructure"
+	"golang.org/x/sync/errgroup"
 )
 
 const portAuditName string = "PORT"
+
+type ScanType func(ctx context.Context, target *PortTarget) ([]nmap.Port, error)
 
 // comparePorts compares if user defined ports match open/closed nmap ports
 //
@@ -68,16 +71,147 @@ func comparePorts(userPorts, nmapPorts []string) bool {
 	return true
 }
 
+// tcpScan runs a TCP scan on the target
+func tcpScan(ctx context.Context, t *PortTarget) ([]nmap.Port, error) {
+	scanner, err := nmap.NewScanner(
+		nmap.WithContext(ctx),
+		nmap.WithTargets(t.Host),
+		nmap.WithSkipHostDiscovery(),
+		nmap.WithSYNScan(), // requires root privileges
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	ports, err := runScanner(scanner)
+	if err != nil {
+		return nil, err
+	}
+
+	return ports, nil
+}
+
+// udpScan runs a UDP scan on the target
+func udpScan(ctx context.Context, t *PortTarget) ([]nmap.Port, error) {
+	scanner, err := nmap.NewScanner(
+		nmap.WithContext(ctx),
+		nmap.WithTargets(t.Host),
+		nmap.WithSkipHostDiscovery(),
+		nmap.WithFastMode(),
+		nmap.WithUDPScan(), // requires root privileges
+		nmap.WithVersionIntensity(0),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	ports, err := runScanner(scanner)
+	if err != nil {
+		return nil, err
+	}
+
+	return ports, nil
+}
+
+func runScanner(scanner *nmap.Scanner) ([]nmap.Port, error) {
+	var (
+		resultBytes []byte
+		errorBytes  []byte
+		ports       []nmap.Port
+	)
+
+	// Executes asynchronously, allowing results to be streamed in real time.
+	if err := scanner.RunAsync(); err != nil {
+		return nil, err
+	}
+
+	// Connect to stdout and stderr of scanner.
+	stdout := scanner.GetStdout()
+	stderr := scanner.GetStderr()
+
+	// Goroutine to watch for stdout and print to screen. Additionally it stores
+	// the bytes intoa variable for processiing later.
+	go func() {
+		for stdout.Scan() {
+			resultBytes = append(resultBytes, stdout.Bytes()...)
+		}
+	}()
+
+	// Goroutine to watch for stderr and print to screen. Additionally it stores
+	// the bytes intoa variable for processiing later.
+	go func() {
+		for stderr.Scan() {
+			errorBytes = append(errorBytes, stderr.Bytes()...)
+		}
+	}()
+
+	// Blocks main until the scan has completed.
+	if err := scanner.Wait(); err != nil {
+		return nil, err
+	}
+
+	// Parsing the results into corresponding structs.
+	result, err := nmap.Parse(resultBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parsing the results into the NmapError slice of our nmap Struct.
+	result.NmapErrors = strings.Split(string(errorBytes), "\n")
+
+	for _, host := range result.Hosts {
+		if len(host.Ports) == 0 || len(host.Addresses) == 0 {
+			continue
+		}
+
+		ports = append(ports, host.Ports...)
+	}
+
+	return ports, nil
+}
+
 // PortTarget holds information about a host to be scanned
 type PortTarget struct {
 	Host          string
 	Group         *PortTargetGroup
-	ScanInfo      *nmap.Run
+	ScanInfo      []nmap.Port
 	ScanInfoError error
 }
 
 // Scan performs a port scan on a host
 func (t *PortTarget) Scan() {
+	scans := func(ctx context.Context) ([]nmap.Port, error) {
+		var (
+			mutex sync.Mutex
+			ports []nmap.Port
+		)
+
+		g, ctx := errgroup.WithContext(ctx)
+
+		scanTypes := []ScanType{tcpScan, udpScan}
+
+		for _, scanType := range scanTypes {
+			scanType := scanType // https://golang.org/doc/faq#closures_and_goroutines
+			g.Go(func() error {
+				scanPorts, err := scanType(ctx, t)
+				if err == nil {
+					mutex.Lock()
+					defer mutex.Unlock()
+
+					ports = append(ports, scanPorts...)
+				}
+
+				return err
+			})
+		}
+
+		if err := g.Wait(); err != nil {
+			return nil, err
+		}
+
+		return ports, nil
+	}
+
 	timeout, err := time.ParseDuration(t.Group.Timeout)
 	if err != nil {
 		t.ScanInfoError = err
@@ -87,30 +221,12 @@ func (t *PortTarget) Scan() {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	scanner, err := nmap.NewScanner(
-		nmap.WithContext(ctx),
-		nmap.WithTargets(t.Host),
-		nmap.WithSkipHostDiscovery(),
-		// SYNScan and UDPScan require root privileges
-		nmap.WithSYNScan(),
-		nmap.WithUDPScan(),
-	)
+	ports, err := scans(ctx)
 	if err != nil {
 		t.ScanInfoError = err
-		return
 	}
 
-	result, warnings, err := scanner.Run()
-	if warnings != nil {
-		fmt.Printf("[%s] Warnings: \n %v\n", t.Host, warnings)
-	}
-
-	if err != nil {
-		t.ScanInfoError = err
-		return
-	}
-
-	t.ScanInfo = result
+	t.ScanInfo = ports
 }
 
 // Result constructs results output for a given port scan
@@ -129,15 +245,13 @@ func (t *PortTarget) Result() []*AuditResult {
 		return results
 	}
 
-	for _, host := range t.ScanInfo.Hosts {
-		for _, port := range host.Ports {
-			protocolPort := fmt.Sprintf("%s/%d", port.Protocol, port.ID)
-			switch port.State.State {
-			case string(nmap.Open):
-				openPorts = append(openPorts, protocolPort)
-			case string(nmap.Closed):
-				closedPorts = append(closedPorts, protocolPort)
-			}
+	for _, port := range t.ScanInfo {
+		protocolPort := fmt.Sprintf("%s/%d", port.Protocol, port.ID)
+		switch port.State.State {
+		case string(nmap.Open):
+			openPorts = append(openPorts, protocolPort)
+		case string(nmap.Closed):
+			closedPorts = append(closedPorts, protocolPort)
 		}
 	}
 
