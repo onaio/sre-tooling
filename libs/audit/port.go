@@ -3,6 +3,8 @@ package audit
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -71,19 +73,37 @@ func comparePorts(userPorts, nmapPorts []string) bool {
 	return true
 }
 
-// tcpScan runs a TCP scan on the target
-func tcpScan(ctx context.Context, t *PortTarget) ([]nmap.Port, error) {
-	scanner, err := nmap.NewScanner(
-		nmap.WithContext(ctx),
-		nmap.WithTargets(t.Host),
-		nmap.WithSkipHostDiscovery(),
-		nmap.WithSYNScan(), // requires root privileges
+// readCommonPorts parses comma delimited ports from a file
+func readCommonPorts(commonPortsPath string) ([]string, error) {
+	commonPortsFilePath := filepath.Join(
+		filepath.Dir(auditFilePath),
+		commonPortsPath,
 	)
+
+	b, err := ioutil.ReadFile(commonPortsFilePath)
 	if err != nil {
 		return nil, err
 	}
 
-	ports, err := runScanner(scanner)
+	ports := strings.Split(strings.TrimSpace(string(b)), ",")
+
+	return ports, nil
+}
+
+// tcpScan runs a TCP scan on the target
+func tcpScan(ctx context.Context, t *PortTarget) ([]nmap.Port, error) {
+	commonPorts, err := readCommonPorts(t.Group.CommonPortsPath.TCP)
+	if err != nil {
+		return nil, err
+	}
+
+	ports, err := runScanner(
+		nmap.WithContext(ctx),
+		nmap.WithTargets(t.Host),
+		nmap.WithSkipHostDiscovery(),
+		nmap.WithPorts(commonPorts...),
+		nmap.WithSYNScan(), // requires root privileges
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +113,16 @@ func tcpScan(ctx context.Context, t *PortTarget) ([]nmap.Port, error) {
 
 // udpScan runs a UDP scan on the target
 func udpScan(ctx context.Context, t *PortTarget) ([]nmap.Port, error) {
-	scanner, err := nmap.NewScanner(
+	commonPorts, err := readCommonPorts(t.Group.CommonPortsPath.UDP)
+	if err != nil {
+		return nil, err
+	}
+
+	ports, err := runScanner(
 		nmap.WithContext(ctx),
 		nmap.WithTargets(t.Host),
 		nmap.WithSkipHostDiscovery(),
-		nmap.WithFastMode(),
+		nmap.WithPorts(commonPorts...),
 		nmap.WithUDPScan(), // requires root privileges
 		nmap.WithVersionIntensity(0),
 	)
@@ -105,20 +130,20 @@ func udpScan(ctx context.Context, t *PortTarget) ([]nmap.Port, error) {
 		return nil, err
 	}
 
-	ports, err := runScanner(scanner)
-	if err != nil {
-		return nil, err
-	}
-
 	return ports, nil
 }
 
-func runScanner(scanner *nmap.Scanner) ([]nmap.Port, error) {
+func runScanner(options ...func(*nmap.Scanner)) ([]nmap.Port, error) {
 	var (
 		resultBytes []byte
 		errorBytes  []byte
 		ports       []nmap.Port
 	)
+
+	scanner, err := nmap.NewScanner(options...)
+	if err != nil {
+		return nil, err
+	}
 
 	// Executes asynchronously, allowing results to be streamed in real time.
 	if err := scanner.RunAsync(); err != nil {
@@ -317,10 +342,14 @@ func (t *PortTarget) Result() []*AuditResult {
 }
 
 type PortTargetGroup struct {
-	Timeout   string     `mapstructure:"timeout"`
-	AllowList []string   `mapstructure:"allowlist"`
-	BlockList []string   `mapstructure:"blocklist"`
-	Discovery *Discovery `mapstructure:"discovery"`
+	Timeout         string     `mapstructure:"timeout"`
+	AllowList       []string   `mapstructure:"allowlist"`
+	BlockList       []string   `mapstructure:"blocklist"`
+	Discovery       *Discovery `mapstructure:"discovery"`
+	CommonPortsPath struct {
+		TCP string `mapstructure:"tcp"`
+		UDP string `mapstructure:"udp"`
+	} `mapstructure:"common_ports_path"`
 }
 
 func (tg *PortTargetGroup) Scan() ([]*AuditResult, error) {

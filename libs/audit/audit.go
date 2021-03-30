@@ -10,6 +10,9 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// auditFilePath contains file path to audit file
+var auditFilePath string
+
 type Status int
 
 const (
@@ -129,7 +132,9 @@ func Run(inputFile string) ([]*AuditResult, error) {
 	var finalErr error
 	var mutex sync.Mutex
 
-	auditFile, err := ioutil.ReadFile(inputFile)
+	auditFilePath = inputFile
+
+	auditFile, err := ioutil.ReadFile(auditFilePath)
 	if err != nil {
 		return nil, err
 	}
