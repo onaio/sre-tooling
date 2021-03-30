@@ -1,9 +1,10 @@
 package audit
 
 import (
+	"bufio"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -83,12 +84,23 @@ func readCommonPorts(commonPortsPath string) ([]string, error) {
 		commonPortsPath,
 	)
 
-	b, err := ioutil.ReadFile(commonPortsFilePath)
+	file, err := os.Open(commonPortsFilePath)
 	if err != nil {
 		return nil, err
 	}
+	defer file.Close()
 
-	ports := strings.Split(strings.TrimSpace(string(b)), ",")
+	ports := []string{}
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		port := strings.TrimSpace(scanner.Text())
+		if port != "" {
+			ports = append(ports, port)
+		}
+	}
+
+	err = scanner.Err()
 
 	return ports, nil
 }
