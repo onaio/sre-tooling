@@ -35,6 +35,14 @@ func comparePorts(userPorts, nmapPorts []string) bool {
 	// check if user defined ports are present in nmap discovered ports
 	for _, port := range userPorts {
 		// check if port has "-" to denote a range
+		//
+		// 0 - n ports need to be open/closed in the range.
+		// n denotes number of ports in the range
+		//
+		// services such as Mosh needs ports 60000 - 61000 to be open
+		// so that it can support up to 1000 simultaneous connections.
+		// However, port 60000 will only start listening when a new mosh
+		// process is created to handle a user's connection.
 		if strings.Contains(port, "-") {
 			a := strings.FieldsFunc(port, func(r rune) bool {
 				return r == '/' || r == '-'
@@ -45,20 +53,15 @@ func comparePorts(userPorts, nmapPorts []string) bool {
 
 			for i := start; i < end+1; i++ {
 				portToLookup := fmt.Sprintf("%s/%d", protocol, i)
-				_, found := nmapPortsSet[portToLookup]
-				if found {
-					// delete port from nmapPortsSet. At the end of the range, if there are
-					// ports left in nmapPortsSet then the two ports don't match
-					delete(nmapPortsSet, portToLookup)
-				} else {
-					return false
-				}
+
+				// remove port from nmapPortsSet as it's expected to be open/closed from
+				// the range definition
+				delete(nmapPortsSet, portToLookup)
 			}
 		} else {
 			_, found := nmapPortsSet[port]
 			if found {
-				// delete port from nmapPortsSet. At the end of the range, if there are
-				// ports left in nmapPortsSet then the two ports don't match
+				// delete port from nmapPortsSet. port exists in the nmapPorts
 				delete(nmapPortsSet, port)
 			} else {
 				return false
