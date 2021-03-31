@@ -5,8 +5,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/onaio/sre-tooling/libs/infra"
+	"github.com/onaio/sre-tooling/libs/types"
 	"gopkg.in/yaml.v2"
 )
+
+// auditFilePath contains file path to audit file
+var auditFilePath string
 
 type Status int
 
@@ -68,10 +73,55 @@ func gradeValue(grade string) float64 {
 	return value
 }
 
+type Discovery struct {
+	Type          string            `mapstructure:"type"`
+	Targets       []string          `mapstructure:"targets"`
+	ResourceTypes []string          `mapstructure:"resource_types"`
+	Regions       []string          `mapstructure:"regions"`
+	Tags          map[string]string `mapstructure:"tags"`
+}
+
+func (d *Discovery) GetHosts() ([]string, error) {
+	if d.Type == "host" {
+		return d.Targets, nil
+	}
+
+	// discover hosts that have not been specified directly by their IP address of domain
+	targets, err := d.hostDiscovery()
+	return targets, err
+}
+
+func (d *Discovery) hostDiscovery() ([]string, error) {
+	var targets []string
+
+	infraFilter := &types.InfraFilter{
+		Providers:     []string{d.Type},
+		ResourceTypes: d.ResourceTypes,
+		Regions:       d.Regions,
+		Tags:          d.Tags,
+	}
+
+	resources, err := infra.GetResources(infraFilter)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, resource := range resources {
+		if resource.Properties["state"] != "running" {
+			continue
+		}
+
+		targets = append(targets, resource.Properties["public-ip"])
+	}
+
+	return targets, nil
+}
+
 func EnabledAudits() map[string]Audit {
 	m := make(map[string]Audit)
 	m["ssl"] = &SSLAudit{}
 	m["ssh"] = &SSHAudit{}
+	m["port"] = &PortScan{}
 
 	return m
 }
@@ -82,7 +132,9 @@ func Run(inputFile string) ([]*AuditResult, error) {
 	var finalErr error
 	var mutex sync.Mutex
 
-	auditFile, err := ioutil.ReadFile(inputFile)
+	auditFilePath = inputFile
+
+	auditFile, err := ioutil.ReadFile(auditFilePath)
 	if err != nil {
 		return nil, err
 	}

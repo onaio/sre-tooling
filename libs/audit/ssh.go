@@ -5,9 +5,7 @@ import (
 	"sync"
 
 	"github.com/mitchellh/mapstructure"
-	"github.com/onaio/sre-tooling/libs/infra"
 	sshaudit "github.com/onaio/sre-tooling/libs/ssh_audit"
-	"github.com/onaio/sre-tooling/libs/types"
 )
 
 const sshAuditName string = "SSH"
@@ -121,25 +119,22 @@ type TargetGroup struct {
 	Discovery  *Discovery `mapstructure:"discovery"`
 }
 
-type Discovery struct {
-	Type          string            `mapstructure:"type"`
-	Targets       []string          `mapstructure:"targets"`
-	ResourceTypes []string          `mapstructure:"resource_types"`
-	Regions       []string          `mapstructure:"regions"`
-	Tags          map[string]string `mapstructure:"tags"`
-}
-
 func (tg *TargetGroup) Scan(api *sshaudit.API) ([]*AuditResult, error) {
 	var tgAuditResults []*AuditResult
 	var tgWG sync.WaitGroup
 	var mutex sync.Mutex
 
-	targets, err := tg.getTargets()
+	hosts, err := tg.Discovery.GetHosts()
 	if err != nil {
 		return nil, err
 	}
 
-	for _, target := range targets {
+	for _, host := range hosts {
+		target := &Target{
+			Host:  host,
+			Group: tg,
+		}
+
 		handler := func(results []*AuditResult, err error) {
 			mutex.Lock()
 			defer mutex.Unlock()
@@ -161,57 +156,6 @@ func (tg *TargetGroup) Scan(api *sshaudit.API) ([]*AuditResult, error) {
 	tgWG.Wait()
 
 	return tgAuditResults, nil
-}
-
-func (tg *TargetGroup) getTargets() ([]*Target, error) {
-	var targets []*Target
-	var err error
-
-	if tg.Discovery.Type == "host" {
-		for _, host := range tg.Discovery.Targets {
-			target := &Target{
-				Host:  host,
-				Group: tg,
-			}
-			targets = append(targets, target)
-		}
-	} else {
-		// discover hosts that have not been specified directly by their IP address of domain
-		targets, err = tg.hostDiscovery()
-	}
-
-	return targets, err
-}
-
-func (tg *TargetGroup) hostDiscovery() ([]*Target, error) {
-	var targets []*Target
-
-	infraFilter := &types.InfraFilter{
-		Providers:     []string{tg.Discovery.Type},
-		ResourceTypes: tg.Discovery.ResourceTypes,
-		Regions:       tg.Discovery.Regions,
-		Tags:          tg.Discovery.Tags,
-	}
-
-	resources, err := infra.GetResources(infraFilter)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, resource := range resources {
-		if resource.Properties["state"] != "running" {
-			continue
-		}
-
-		target := &Target{
-			Host:  resource.Properties["public-ip"],
-			Group: tg,
-		}
-
-		targets = append(targets, target)
-	}
-
-	return targets, nil
 }
 
 type SSHAudit struct {
