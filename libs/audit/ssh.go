@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/evansmurithi/sshaudit"
 	"github.com/mitchellh/mapstructure"
-	sshaudit "github.com/onaio/sre-tooling/libs/ssh_audit"
+	"github.com/onaio/sre-tooling/libs/version"
 )
 
 const sshAuditName string = "SSH"
@@ -24,19 +25,19 @@ func (a AuditType) String() string {
 type Target struct {
 	Host             string
 	Group            *TargetGroup
-	StandardScanInfo *sshaudit.StandardAuditResp
-	PolicyScanInfo   *sshaudit.PolicyAuditResp
+	StandardScanInfo *sshaudit.StandardServerAuditInfo
+	PolicyScanInfo   *sshaudit.PolicyServerAuditInfo
 	ScanInfoError    error
 }
 
-func (target *Target) Scan(api *sshaudit.API) {
+func (target *Target) Scan(api *sshaudit.Client) {
 	if target.Group.AuditType == "policy" {
-		scanInfo, err := api.PolicyAudit(target.Host, target.Group.Port, target.Group.PolicyName)
+		scanInfo, err := api.PolicyServerAudit(target.Host, target.Group.Port, target.Group.PolicyName)
 		target.PolicyScanInfo = scanInfo
 		target.ScanInfoError = err
 	} else {
 		// default to "standard" audit
-		scanInfo, err := api.StandardAudit(target.Host, target.Group.Port)
+		scanInfo, err := api.StandardServerAudit(target.Host, target.Group.Port)
 		target.StandardScanInfo = scanInfo
 		target.ScanInfoError = err
 	}
@@ -119,7 +120,7 @@ type TargetGroup struct {
 	Discovery  *Discovery `mapstructure:"discovery"`
 }
 
-func (tg *TargetGroup) Scan(api *sshaudit.API) ([]*AuditResult, error) {
+func (tg *TargetGroup) Scan(api *sshaudit.Client) ([]*AuditResult, error) {
 	var tgAuditResults []*AuditResult
 	var tgWG sync.WaitGroup
 	var mutex sync.Mutex
@@ -173,7 +174,7 @@ func (ssh *SSHAudit) Scan() ([]*AuditResult, error) {
 	var mutex sync.Mutex
 	var finalErr error
 
-	api, err := sshaudit.NewAPI()
+	api, err := sshaudit.NewClient("onaio/sre-tooling", version.Current)
 	if err != nil {
 		return nil, err
 	}
