@@ -21,7 +21,7 @@ const (
 	Error
 )
 
-type Audit interface {
+type AuditInterface interface {
 	Load(input interface{}) error
 	Scan() ([]*AuditResult, error)
 }
@@ -117,8 +117,8 @@ func (d *Discovery) hostDiscovery() ([]string, error) {
 	return targets, nil
 }
 
-func EnabledAudits() map[string]Audit {
-	m := make(map[string]Audit)
+func EnabledAudits() map[string]AuditInterface {
+	m := make(map[string]AuditInterface)
 	m["ssl"] = &SSLAudit{}
 	m["ssh"] = &SSHAudit{}
 	m["port"] = &PortScan{}
@@ -166,7 +166,7 @@ func Run(inputFile string) ([]*AuditResult, error) {
 
 			auditWG.Add(1)
 
-			go func(audit Audit, handler AuditScanHandler) {
+			go func(audit AuditInterface, handler AuditScanHandler) {
 				defer auditWG.Done()
 
 				res, err := audit.Scan()
