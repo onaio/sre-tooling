@@ -6,7 +6,6 @@ import (
 
 	"github.com/onaio/sre-tooling/libs/notification"
 
-	auditlib "github.com/onaio/sre-tooling/libs/audit"
 	"github.com/onaio/sre-tooling/libs/cli"
 )
 
@@ -57,7 +56,7 @@ func (audit *Audit) Process() {
 		cli.ExitCommandInterpretationError()
 	}
 
-	auditResults, err := auditlib.Run(*audit.auditFileFlag)
+	auditResults, err := Run(*audit.auditFileFlag)
 	if err != nil {
 		notification.SendMessage(err.Error())
 		cli.ExitCommandExecutionError()
@@ -66,7 +65,7 @@ func (audit *Audit) Process() {
 	auditPassed := true
 
 	for _, res := range auditResults {
-		if res.Status != auditlib.Pass {
+		if res.Status != Pass {
 			auditPassed = false
 		}
 
