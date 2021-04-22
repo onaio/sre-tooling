@@ -2,7 +2,6 @@ package notification
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -17,7 +16,7 @@ type Slack struct {
 func (snc Slack) SendMessage(message string) error {
 	webhookURL := os.Getenv(slackWebhookURLEnvVar)
 	if len(webhookURL) == 0 {
-		return errors.New(fmt.Sprintf("%s not set", slackWebhookURLEnvVar))
+		return fmt.Errorf("%s not set", slackWebhookURLEnvVar)
 	}
 	var body = []byte(fmt.Sprintf(`{"text":"%s"}`, message))
 	req, reqErr := http.NewRequest("POST", webhookURL, bytes.NewBuffer(body))
